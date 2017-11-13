@@ -202,8 +202,8 @@ def setup_config(deployment_config, accounts_info, is_update):
 
         # check owncloud client version installation
         version = os.popen("cernboxcmd --version").read()
-        #if(current_config["oc_client"]!=version):
-            #install_oc_client(current_config["oc_client"])# update version
+        if(current_config["oc_client"]!=version):
+            install_oc_client(current_config["oc_client"])# update version
 
         # configurate smashbox
         configure_smashbox(accounts_info["oc_account_name"], accounts_info["oc_account_password"], current_config["oc_server"],current_config["ssl_enabled"])
@@ -283,7 +283,7 @@ if __name__== '__main__':
 
     current_config = setup_config(deployment_config, accounts_info, is_update)
 
-    #smash_run()
+    smash_run()
 
     if not is_update:
         # install cron job
