@@ -1,1 +1,92 @@
-# smashbox-deployment
+smashbox-deployment
+========
+
+This repository contains the scripts and documentation to easily deploy CERNBox client-testing configurations with smashbox framework. Analysis and visualization of test results can be monitor with kibana using the kibana-plugin in `smashbox/python/monitoring/kibana_monitoring.py`.
+
+We deploy smashbox with the following purposes:
+   * Regression-testing
+   * Behaviour comparison of the sync client with different configurations: platforms, cernbox client versions and endpoints
+   * Test the sync client installation on different platforms (e.g., Windows, CentOS, MacOSX)
+   
+Currently, it is possible to deploy smashbox in your current machine, a cluster of VMs in OpenStack or within a set of containers using Docker. Finally, this document also describes how to visualize and analyse the test results with kibana (table of contents)
+   
+project tree   
+=================
+
+This repository is organised in the following way:
+
+<pre>
+   smashbox-deployment
+   ├── documentation/       : procedures to manually set up a machine for continuos testing and monitoring
+   ├── openstack/           : scripts and configuration used to automatically deploy and continuosly run smashbox tests in a set of virtual machines using OpenStack
+   │   └── setup.py         : this the main script used to deploy the specified architecture
+   ├── docker/              : scripts, docker files and configuration used to automatically deploy and continuosly run smashbox tests in a set of containers
+   │   └── Dockerfiles/     : dockerfiles used to build different images for each platform
+   │   └── setup.py         : this the main script used to deploy the specified architecture
+   ├── kibana/              : this folder contains json files that stores kibana dashboards configurations
+   ├── setup-smashbox.py    : this is the script used to automatically setup smashbox using the configuration file
+   ├── smash-run.py         : this is the script used to continuously run smashbox tests
+   └── README               : this file
+
+</pre>
+
+table of contents
+=================
+
+  - [Set up a machine for continuos testing and monitoring](#Setting-up-a-machine)
+  - [Deploy and set up a cluster of VMs (Openstack) to continuosly run tests with different configurations](#Openstack)
+  - [Deploy and set up a set of containers (Docker) to continuosly run tests with different configurations](#Docker)
+  - [Monitoring and Analysis with kibana](#Monitoring)
+
+<h3 id="Setting-up-a-machine">Set up a machine for continuos testing and monitoring</h3>
+
+If you want to set up a machine for continuos testing and monitoring with smashbox, you can execute the script `setup_smashbox.py`. This script is developed to automatically install the OwnCloud client, configuring smashbox and installing the cron job.
+
+This python script receives as argument a configuration file with the following parameters:
+
+|    Hostname    |  Platform | OC client | OC server |  Runtime  |  OC username |  OC password | SSL enabled |
+|:--------------:|:---------:|:---------:|:---------:|:---------:|-------------:|-------------:|------------:|
+| osx-buildnode  |   MacOSX  | beryl_aq  |   2.3.3   | cernbox.c |    user1     |  password1   |     True    |
+
+Once the machine has been set up, the machine will be configured to read periodically this configuration file to apply changes (if neccesary). 
+
+An example of execution of this script:
+
+
+Alternatively, you can manually set up the machine with the documentation available in `documentation`.
+
+<h3 id="Openstack"> Deploy and set up a cluster of VMs (Openstack) to continuosly run tests with different configurations</h3>
+
+
+
+|  Openstack username |  Openstack password |
+|--------------------:|--------------------:|
+|      user1          |      password1      |
+
+
+<h3 id="Docker">Deploy and set up a set of containers (Docker) to continuosly run tests with different configurations</h3>
+
+<h3 id="Monitoring">Monitoring and Analysis with kibana</h3>
+
+The goal of this section is to provide a convenient monitoring tool for the deployed smashbox testing architecture. For this purpose it has been choosen kibana for visualization and elasticsearch to store tests results. 
+
+In order to visualize the test results in kibana; first it is needed to provide the following parameters in `smashbox/etc/smashbox.conf`
+
+  - **kibana_monitoring_host**. This is the host machine where you have running kibana. *For example: kibana_monitoring_host = "http://monit-metrics"*
+  - **kibana_monitoring_port**. This is the port to communicate with ELK. *For example:  kibana_monitoring_port = "10012"*
+  - **kibana_activity**. This is an additional parameter to be able to identify the data that you are sending to ELK. *For example: kibana_activity = "smashbox-regression"*
+
+The kibana web interface is accessible in https://monit-kibana.cern.ch. 
+
+If you don't have yet the dashboard configured. You can download the json file `kibana\cernbox-smashbox.json`; then you need to go to the tab "management" in kibana and import this json file as a saved of object.
+
+![Alt text](/documentation/img/import-kibana-dashboard.png?raw=true "import-kibana-dashboard")
+
+The dashboard has been designed to monitor the failed tests running smashbox with different OwnCloud client versions and different platforms. For regression testing, tests are executed periodically according to the csv file provided in the deployment and the  schedule specified there.
+
+![Alt text](/documentation/img/smashbox-dashboard.png?raw=true "smashbox-dashboard")
+
+** Note: This section is based on the current deployed ELK architecture at CERN. In order to easily deploy an ELK architecture there is a document describing the procedure `kibana/elk-docker.pdf`.
+
+
+
