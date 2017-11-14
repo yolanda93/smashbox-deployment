@@ -22,8 +22,7 @@ This repository is organised in the following way:
    │   └── Dockerfiles/     : dockerfiles used to build different images for each platform
    │   └── setup.d          : these are the main scripts used to deploy the specified architecture
    ├── kibana/              : this folder contains json files that stores kibana dashboards configurations
-   ├── setup-smashbox.py    : this is the script used to automatically setup smashbox using the configuration file
-   ├── smash-run.py         : this is the script used to continuously run smashbox tests
+   ├── setup.py             : this is the script used to set up automatically the machine
    └── README               : this file
 
 </pre>
@@ -42,7 +41,7 @@ The documentation and steps to manually setup a machine are in: `./documentation
 
 <h3 id="Openstack"> Deploy and set up a cluster of VMs (Openstack) to continuosly run tests with different configurations</h3>
 
-If you want to set up a machine for continuos testing and monitoring with smashbox, you can execute the script `setup.py`. This script is developed to dinamically install the OwnCloud client, configuring smashbox and installing the cron job.
+If you want to set up a machine for continuos testing and monitoring with smashbox, you can execute the script `setup.py`. This script is developed to automatically and dinamically install the OwnCloud client, configuring smashbox and installing the cron job.
 
 This python script reads a configuration file stored in this repository called "deployment_architecture.csv" with the following parameters:
 
@@ -50,7 +49,7 @@ This python script reads a configuration file stored in this repository called "
 |:--------------:|:---------:|:---------:|:---------:|:---------:|-------------:|-------------:|------------:|
 | osx-buildnode  |   MacOSX  | beryl_aq  |   2.3.3   | cernbox.c |    user1     |  password1   |     True    |
 
-Once the machine has been set up, the machine will be configured to read periodically this configuration file to apply changes (if neccesary).
+Once the machine has been set up, the machine will be configured to read periodically from this configuration file to apply changes (if neccesary).
 
 An example of execution of this script:
 ```
@@ -71,7 +70,8 @@ If you want to set up the cluster with containers. You should run the following 
 docker build -t debian-smashbox
 docker run -it -e SMASHBOX_OC_ACCOUNT_NAME="XXXX" -e  SMASHBOX_OC_ACCOUNT_PASSWORD="YYYYYY" -e SMASHBOX_OC_SERVER="cernbox.cern.ch" debian-smashbox:latest bash
 ```
-The `docker build` should make reference to the dockerfile with the image desired to set up. Then it is also neccesary to define the following environment variables:
+
+The `docker build` should make reference to the dockerfile with the image desired to set up. Then, it is also neccesary to define the following environment variables:
 
 ```
   SMASHBOX_OS
