@@ -18,11 +18,9 @@ This repository is organised in the following way:
 <pre>
    smashbox-deployment
    ├── documentation/       : procedures to manually set up a machine for continuos testing and monitoring
-   ├── openstack/           : scripts and configuration used to automatically deploy and continuosly run smashbox tests in a set of virtual machines using OpenStack
-   │   └── setup.py         : this the main script used to deploy the specified architecture
    ├── docker/              : scripts, docker files and configuration used to automatically deploy and continuosly run smashbox tests in a set of containers
    │   └── Dockerfiles/     : dockerfiles used to build different images for each platform
-   │   └── setup.py         : this the main script used to deploy the specified architecture
+   │   └── setup.d          : these are the main scripts used to deploy the specified architecture
    ├── kibana/              : this folder contains json files that stores kibana dashboards configurations
    ├── setup-smashbox.py    : this is the script used to automatically setup smashbox using the configuration file
    ├── smash-run.py         : this is the script used to continuously run smashbox tests
