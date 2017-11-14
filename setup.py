@@ -24,7 +24,8 @@ cbox_v = {
 }
 
 def this_repo_name():
-    git_config = open(os.path.join(os.getcwd(),".git","config"), 'rb')
+    current_path = os.path.dirname(os.path.abspath(__file__))
+    git_config = open(os.path.join(current_path,".git","config"), 'rb')
     repo_name=""
 
     for line in git_config:
@@ -50,7 +51,7 @@ def install_oc_client(version):
     import wget
 
     if platform.system() == "linux" or platform.system() == "linux2":  # linux
-        print '\033[94m' + " Installing cernbox client " + version + " for linux" + '\033[0m'
+        print '\033[94m' + "Installing cernbox client " + version + " for linux" + '\033[0m'
         wget.download("http://cernbox.cern.ch/cernbox/doc/Linux/" + cbox_v[version][0] +".repo")
         os.rename("./" + cbox_v[version][0] +".repo", "./tmp/" + cbox_v[version][0] +".repo")
         os.system("cp ./tmp/" + cbox_v[version][0] +".repo /etc/yum.repos.d/cernbox.repo")
@@ -58,14 +59,14 @@ def install_oc_client(version):
         os.system("yum install cernbox-client")
 
     elif platform.system() == "darwin":  # MacOSX
-        print '\033[94m' + " Installing cernbox client " + version + " for MAC OSX" + '\033[0m'
+        print '\033[94m' + "Installing cernbox client " + version + " for MAC OSX" + '\033[0m'
         wget.download("https://cernbox.cern.ch/cernbox/doc/MacOSX/cernbox-" + cbox_v[version][1] +"-signed.pkg")
         os.system("cp ./cernbox-" + cbox_v[version][1] +"-signed.pkg ./tmp/cernbox-" + cbox_v[version][1] +"-signed.pkg")
         os.system("installer -pkg ./tmp/cernbox-" + cbox_v[version][1] +"-signed.pkg -target /")
 
 
     elif platform.system() == "Windows":  # Windows
-        print '\033[94m' + " Installing cernbox client " + version + " for Windows" + '\033[0m'
+        print '\033[94m' + "Installing cernbox client " + version + " for Windows" + '\033[0m'
         wget.download("https://cernbox.cern.ch/cernbox/doc/Windows/cernbox-" + cbox_v[version][2] +"-setup.exe")
         #os.rename(os.path.join(os.getcwd(),"cernbox-" + cbox_v[version][2] +"-setup.exe"), os.path.join(os.getcwd(),"/tmp/cernbox-" + cbox_v[version][2] +"-setup.exe"))
         os.system("cernbox-" + cbox_v[version][2] +"-setup.exe /S")
@@ -169,8 +170,21 @@ def setup_python():
             import pycurl
 
 
+def ocsync_version(oc_sync_cmd):
+    """ Return the version reported by oc_sync_cmd.
+    Returns a tuple (major,minor,bugfix). For example: (1,7,2) or (2,1,1)
+    """
+    # strip possible options from config.oc_sync_cmd
+    cmd = [oc_sync_cmd[0]] + ["--version"]
+    process = subprocess.Popen(cmd, shell=False,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    stdout,stderr = process.communicate()
 
-def setup_config(deployment_config, accounts_info, is_update):
+    sver = stdout.strip().split()[2]  # the version is the third argument
+
+    return tuple([int(x) for x in sver.split(".")])
+
+
+def setup_config(deployment_config, accounts_info,is_update):
     current_config = dict()
     for row in deployment_config:
         if(row["hostname"]==socket.gethostname()):
@@ -187,7 +201,12 @@ def setup_config(deployment_config, accounts_info, is_update):
             pip.main(['install', 'pyocclient'])
 
         # check owncloud client version installation
-        version = os.popen("cernboxcmd --version").read()
+        if platform.system() == "Windows":
+            version_tuple = ocsync_version(['C:\Program Files (x86)\cernbox\cernboxcmd.exe','--trust'])
+            version = str(version_tuple)[1:-1].replace(", ",".")
+        else:
+            version = ocsync_version("/usr/bin/cernboxcmd --trust")
+
         if(current_config["oc_client"]!=version):
             install_oc_client(current_config["oc_client"])# update version
 
@@ -203,15 +222,16 @@ def load_config_file(auth_file="auth.conf",is_update=False):
     if is_update:
         if platform.system() == "Windows":
             download_repository(this_repo)
-            shutil.move(os.path.join(os.getcwd(), "smashbox-deployment","deployment_architecture.csv"), os.getcwd())
-            shutil.rmtree("smashbox-deployment")
         else:
             os.system("git pull " + os.getcwd())
 
-    deploy_file = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f)) and f=='deployment_architecture.csv' ][0]
-    if deploy_file == "":
-        print "Missing deployment configuration file: 'deployment_architecture.csv'"
-        exit(0)
+    if platform.system() == "Windows":
+        deploy_file = os.path.join(os.getcwd(), "smashbox-deployment", "deployment_architecture.csv")
+    else:
+        deploy_file = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f)) and f=='deployment_architecture.csv' ][0]
+        if deploy_file == "":
+            print "Missing deployment configuration file: 'deployment_architecture.csv'"
+            exit(0)
 
     try:
         authfile = open(auth_file, 'rb')
@@ -220,7 +240,10 @@ def load_config_file(auth_file="auth.conf",is_update=False):
 
     for line in authfile:
         if line[0:len("oc_account_name = ")] == "oc_account_name = ":
-            accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\n')[0]
+            if platform.system()!="Windows":
+               accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\n')[0]
+            else:
+               accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\r')[0]
         if line[0:len("oc_account_password = ")] == "oc_account_password = ":
             accounts_info["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
 
@@ -256,11 +279,11 @@ if __name__== '__main__':
     if os.path.exists(os.path.join(os.getcwd(), "smashbox")): # (is update? or now setup?)
         is_update = True
 
-    if not is_update:
-        deployment_config, accounts_info = load_config_file(args.auth,is_update)
-        current_config = setup_config(deployment_config, accounts_info, is_update)
-        smash_run()
+    deployment_config, accounts_info = load_config_file(args.auth,is_update)
+    current_config = setup_config(deployment_config, accounts_info, is_update)
+    smash_run()
 
+    if not is_update:
         # install cron job
 
         if platform.system() != "Windows":
@@ -293,12 +316,7 @@ if __name__== '__main__':
                 print "The task cannot be created on Windows - ", stderr
             else:
                 print "The task has been successfully installed"
-    else: # is update
 
-        deployment_config, accounts_info = load_config_file(args.auth,is_update)
-        current_config = setup_config(deployment_config, accounts_info, is_update)
-
-        smash_run()
 
 
 
