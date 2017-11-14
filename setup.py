@@ -75,7 +75,7 @@ def configure_smashbox(oc_account_name,oc_account_password,oc_server,ssl_enabled
     else:
         f.write('oc_ssl_enabled =' + "False" + '\n')
 
-    if platform.system() == "linux" or platform.system() == "linux2":  # linux
+    if platform.system() == "Linux" or platform.system() == "linux2":  # linux
         location = os.popen("whereis cernboxcmd").read()
         path = "/" + location.split("cernboxcmd")[1].split(": /")[1] + "cernboxcmd --trust"
     elif platform.system() == "darwin":
@@ -288,8 +288,8 @@ if __name__== '__main__':
                     os.system(sys.executable + " -m easy_install python-crontab")
                     from crontab import CronTab
 
-                user = os.popen("echo $USER").read().split("\n")[0]
-                my_cron = CronTab(user)
+                #user = os.popen("echo $USER").read().split("\n")[0]
+                my_cron = CronTab("root")
                 current_path = os.path.dirname(os.path.abspath(__file__))
                 job = my_cron.new(command=sys.executable + os.path.join(os.getcwd(), "smash-setup.py"))
                 runtime = current_config['runtime'].split(":")

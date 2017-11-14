@@ -1,2 +1,3 @@
 hostname,platform,oc_client,oc_server,runtime,ssl_enabled
 DESKTOP-SJNVR9L,Windows,2.3.3,cernbox.cern.ch,09:10,True
+yolandadep,Linux,2.3.3,cernbox.cern.ch,09:10,True
