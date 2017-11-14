@@ -108,6 +108,9 @@ def backup_results():
 
 
 def get_repo_name(repo_url):
+    """ This function is a workaround for Windows
+    lack of git on cmd
+    """
     if (repo_url[0:len("https://github.com/")]=="https://github.com/"): #git repo
         repo_name = repo_url.split("https://github.com/")[1][:-4]
     else:
@@ -225,7 +228,7 @@ def load_config_file(auth_file="auth.conf",is_update=False):
         else:
             os.system("git pull " + os.getcwd())
 
-    if platform.system() == "Windows":
+    if platform.system() == "Windows" and is_update:
         deploy_file = os.path.join(os.getcwd(), "smashbox-deployment", "deployment_architecture.csv")
     else:
         deploy_file = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f)) and f=='deployment_architecture.csv' ][0]
