@@ -1,0 +1,26 @@
+[
+  {
+    "_id": "7b78eec0-ae4c-11e7-95bd-7371eb9213d6",
+    "_type": "dashboard",
+    "_source": {
+      "title": "_project cernbox smashbox",
+      "hits": 0,
+      "description": "",
+      "panelsJSON": "[{\"col\":11,\"id\":\"smashbox-passed-slash-failed_tests\",\"panelIndex\":1,\"row\":1,\"size_x\":2,\"size_y\":3,\"type\":\"visualization\"},{\"col\":1,\"id\":\"smashbox-tests_summary_table\",\"panelIndex\":4,\"row\":11,\"size_x\":12,\"size_y\":12,\"type\":\"visualization\"},{\"col\":1,\"id\":\"README\",\"panelIndex\":13,\"row\":32,\"size_x\":12,\"size_y\":3,\"type\":\"visualization\"},{\"col\":1,\"id\":\"64cf6e00-ae4d-11e7-85d5-df4285de142d\",\"panelIndex\":14,\"row\":1,\"size_x\":4,\"size_y\":3,\"type\":\"visualization\"},{\"col\":5,\"id\":\"187e03c0-ae5e-11e7-8bca-3569f4d3d608\",\"panelIndex\":15,\"row\":1,\"size_x\":2,\"size_y\":2,\"type\":\"visualization\"},{\"col\":9,\"id\":\"b20a5240-ae5a-11e7-9d86-737946efe071\",\"panelIndex\":18,\"row\":1,\"size_x\":2,\"size_y\":2,\"type\":\"visualization\"},{\"col\":7,\"id\":\"a6435980-ae5e-11e7-8bca-3569f4d3d608\",\"panelIndex\":19,\"row\":1,\"size_x\":2,\"size_y\":2,\"type\":\"visualization\"},{\"col\":1,\"id\":\"60b90a80-ae91-11e7-b587-450775bb9d45\",\"panelIndex\":20,\"row\":4,\"size_x\":6,\"size_y\":3,\"type\":\"visualization\"},{\"col\":7,\"id\":\"e5fca440-ae91-11e7-b587-450775bb9d45\",\"panelIndex\":21,\"row\":4,\"size_x\":6,\"size_y\":3,\"type\":\"visualization\"},{\"col\":5,\"id\":\"bdabe370-af2c-11e7-b60b-834b1fba83a2\",\"panelIndex\":23,\"row\":7,\"size_x\":4,\"size_y\":4,\"type\":\"visualization\"},{\"col\":9,\"id\":\"86047e40-af2d-11e7-b60b-834b1fba83a2\",\"panelIndex\":25,\"row\":7,\"size_x\":4,\"size_y\":4,\"type\":\"visualization\"},{\"col\":1,\"id\":\"ccf755c0-af2d-11e7-a893-9be719ed605c\",\"panelIndex\":26,\"row\":7,\"size_x\":4,\"size_y\":4,\"type\":\"visualization\"},{\"col\":1,\"columns\":[\"data.test_name\",\"data.errors_text\",\"data.parameters_text\"],\"id\":\"159aa070-b320-11e7-aaae-155a20f239cd\",\"panelIndex\":27,\"row\":23,\"size_x\":12,\"size_y\":9,\"sort\":[\"metadata.timestamp\",\"desc\"],\"type\":\"search\"}]",
+      "optionsJSON": "{\"darkTheme\":false}",
+      "uiStateJSON": "{\"P-1\":{\"spy\":{\"mode\":{\"fill\":false,\"name\":null}},\"vis\":{\"legendOpen\":false}},\"P-15\":{\"vis\":{\"defaultColors\":{\"0 - 100\":\"rgb(0,104,55)\"},\"legendOpen\":false}},\"P-18\":{\"vis\":{\"defaultColors\":{\"0 - 10000\":\"rgb(0,104,55)\"}}},\"P-19\":{\"vis\":{\"defaultColors\":{\"0 - 100\":\"rgb(0,104,55)\"},\"legendOpen\":false}},\"P-4\":{\"vis\":{\"params\":{\"sort\":{\"columnIndex\":null,\"direction\":null}}}}}",
+      "version": 1,
+      "timeRestore": true,
+      "timeTo": "now-1w/w",
+      "timeFrom": "now-1w/w",
+      "refreshInterval": {
+        "display": "Off",
+        "pause": false,
+        "value": 0
+      },
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"filter\":[{\"query\":{\"query_string\":{\"analyze_wildcard\":true,\"lowercase_expanded_terms\":false,\"query\":\"*\"}}}],\"highlightAll\":true,\"version\":true}"
+      }
+    }
+  }
+]
