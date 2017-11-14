@@ -23,6 +23,17 @@ cbox_v = {
     "1.8.3": ["centos7-cernbox","1.8.3.510","1.8.3.499"],
 }
 
+def this_repo_name():
+    git_config = open(os.path.join(os.getcwd(),".git","config"), 'rb')
+    repo_name=""
+
+    for line in git_config:
+        if line[0:len("	url = ")] == "	url = " :
+            return line[len("	url = ")::].split('\n')[0]
+
+this_repo = this_repo_name()
+print this_repo
+
 def publish_deployment_conf():
     """
     This function publish new configuration deployment
@@ -31,15 +42,15 @@ def publish_deployment_conf():
     return True
 
 def smash_run():
-    print '\033[94m' + "(3) Running smashbox in" +  str(socket.gethostname()) + '\033[0m'
+    print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m'
     current_path = os.path.dirname(os.path.abspath(__file__))
-    os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going -a " + current_path + "/smashbox/lib/")
+    os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going " + current_path + "/smashbox/lib/")
 
 def install_oc_client(version):
     import wget
 
     if platform.system() == "linux" or platform.system() == "linux2":  # linux
-        print '\033[94m' + "(1) Installing cernbox client " + version + " for linux" + '\033[0m'
+        print '\033[94m' + " Installing cernbox client " + version + " for linux" + '\033[0m'
         wget.download("http://cernbox.cern.ch/cernbox/doc/Linux/" + cbox_v[version][0] +".repo")
         os.rename("./" + cbox_v[version][0] +".repo", "./tmp/" + cbox_v[version][0] +".repo")
         os.system("cp ./tmp/" + cbox_v[version][0] +".repo /etc/yum.repos.d/cernbox.repo")
@@ -47,21 +58,21 @@ def install_oc_client(version):
         os.system("yum install cernbox-client")
 
     elif platform.system() == "darwin":  # MacOSX
-        print '\033[94m' + "(1) Installing cernbox client " + version + " for MAC OSX" + '\033[0m'
+        print '\033[94m' + " Installing cernbox client " + version + " for MAC OSX" + '\033[0m'
         wget.download("https://cernbox.cern.ch/cernbox/doc/MacOSX/cernbox-" + cbox_v[version][1] +"-signed.pkg")
         os.system("cp ./cernbox-" + cbox_v[version][1] +"-signed.pkg ./tmp/cernbox-" + cbox_v[version][1] +"-signed.pkg")
         os.system("installer -pkg ./tmp/cernbox-" + cbox_v[version][1] +"-signed.pkg -target /")
 
 
     elif platform.system() == "Windows":  # Windows
-        print '\033[94m' + "(1) Installing cernbox client " + version + " for Windows" + '\033[0m'
+        print '\033[94m' + " Installing cernbox client " + version + " for Windows" + '\033[0m'
         wget.download("https://cernbox.cern.ch/cernbox/doc/Windows/cernbox-" + cbox_v[version][2] +"-setup.exe")
         #os.rename(os.path.join(os.getcwd(),"cernbox-" + cbox_v[version][2] +"-setup.exe"), os.path.join(os.getcwd(),"/tmp/cernbox-" + cbox_v[version][2] +"-setup.exe"))
         os.system("cernbox-" + cbox_v[version][2] +"-setup.exe /S")
         os.remove("cernbox-" + cbox_v[version][2] +"-setup.exe")
 
 def configure_smashbox(oc_account_name,oc_account_password,oc_server,ssl_enabled):
-    print '\033[94m' + "(2) Installing smashbox" + '\033[0m'
+    print '\033[94m' + "Installing/updating smashbox" + '\033[0m'
     new_smash_conf = os.path.join(os.getcwd(),"smashbox","etc","smashbox.conf")
     shutil.copyfile("auto-smashbox.conf",new_smash_conf)
     f = open(new_smash_conf, 'a')
@@ -98,37 +109,19 @@ def backup_results():
 def get_repo_name(repo_url):
     if (repo_url[0:len("https://github.com/")]=="https://github.com/"): #git repo
         repo_name = repo_url.split("https://github.com/")[1][:-4]
-    elif (repo_url[0:len("https://gitlab.cern.ch/")] == "https://gitlab.cern.ch/"): #gitlab private repo
-        repo_name = repo_url.split("https://gitlab.cern.ch/")[1][:-4]
     else:
         print "incorrect repo url or git service not supported"
         exit(0)
     return repo_name
 
-def get_private_repo(git_url,username,token):
-    import urllib2
-    import base64
-    import requests
-    try:
-        wget.download
-    except:
-        print 'Failed to get api request from %s' % git_url
 
-def is_private(repo_url):
-    if (repo_url[0:len("https://gitlab.cern.ch/")] == "https://gitlab.cern.ch/"):
-        return True
-    else:
-        return False
-
-def download_repository(repo_url,is_update):
+def download_repository(repo_url):
     """ This function is a workaround for Windows
     lack of git on cmd
     """
     repo_name = get_repo_name(repo_url)
 
     if platform.system() == "Windows":
-        if is_update:
-            shutil.rmtree(repo_name)
         import wget
         wget.download("http://github.com/" + repo_name + "/archive/master.zip")
         import zipfile
@@ -189,7 +182,7 @@ def setup_config(deployment_config, accounts_info, is_update):
     else:
         if not is_update:
             setup_python()
-            download_repository("https://github.com/cernbox/smashbox.git",is_update)
+            download_repository("https://github.com/cernbox/smashbox.git")
             import pip
             pip.main(['install', 'pyocclient'])
 
@@ -203,9 +196,22 @@ def setup_config(deployment_config, accounts_info, is_update):
     return current_config
 
 
-def load_config_file(deploy_file,auth_file):
+def load_config_file(auth_file="auth.conf",is_update=False):
     deploy_configuration = dict()
     accounts_info = dict()
+
+    if is_update:
+        if platform.system() == "Windows":
+            download_repository(this_repo)
+            shutil.move(os.path.join(os.getcwd(), "smashbox-deployment","deployment_architecture.csv"), os.getcwd())
+            shutil.rmtree("smashbox-deployment")
+        else:
+            os.system("git pull " + os.getcwd())
+
+    deploy_file = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f)) and f=='deployment_architecture.csv' ][0]
+    if deploy_file == "":
+        print "Missing deployment configuration file: 'deployment_architecture.csv'"
+        exit(0)
 
     try:
         authfile = open(auth_file, 'rb')
@@ -214,9 +220,9 @@ def load_config_file(deploy_file,auth_file):
 
     for line in authfile:
         if line[0:len("oc_account_name = ")] == "oc_account_name = ":
-            accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split("   ")[0][:-2]
+            accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\n')[0]
         if line[0:len("oc_account_password = ")] == "oc_account_password = ":
-            accounts_info["oc_account_password"] = line[len("oc_account_password = ")::].split("   ")[0][:-2]
+            accounts_info["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
 
     if deploy_file[-3:] == "csv":
         try:
@@ -230,14 +236,8 @@ def load_config_file(deploy_file,auth_file):
 
     return deploy_configuration, accounts_info
 
-
 def parse_cmdline_args():
     parser = argparse.ArgumentParser(description='''Smashbox - This is a framework for end-to-end testing the core storage functionality of owncloud-based service installation ''')
-    parser.add_argument("--repo",
-                        help='git repository with the configuration file and accounts info file')
-    parser.add_argument("--config",
-                        help='deployment configuration file',
-                        default="deployment_architecture.csv")
     parser.add_argument("--auth",
                         help='accounts info config file',
                         default="auth.conf")
@@ -251,64 +251,53 @@ if __name__== '__main__':
         sys.stdout.write("Check command line arguments (%s)" % e.strerror)
 
     is_update = False
-
-    if not (args.config and args.auth) and not (args.repo and args.auth):
-        print "Missing the configurations files or git repository with them"
-        parser.print_help()
-        exit(0)
-
-    elif args.repo: # In this mode it will automatically apply the deployment changes from deployment_architecture.csv
-        repo_name = get_repo_name(args.repo)
-        repo_folder = repo_name.split("/")[1]
-        if os.path.exists(os.path.join(os.getcwd(), repo_folder)): is_update = True # it's already configurated, only apply config changes
-        download_repository(args.repo,is_update)  # get new deployment config files
-        config_files = [f for f in listdir(repo_folder) if isfile(join(repo_folder, f)) and f=='deployment_architecture.csv' ]
-        if(len(config_files)<1):
-            print "Missing configuration files: 'deployment_architecture.csv'"
-            exit(0)
-        else:
-            deployment_config, accounts_info = load_config_file(config_files[0],args.auth)
-
     current_config = dict()
-    if os.path.exists(os.path.join(os.getcwd(), "smashbox")) != True:
-        if args.config and args.auth: # In this mode it will simply set up the machine with the deployment architecture defined in deployment_architecture.csv
-            deployment_config, accounts_info = load_config_file(args.config, args.auth)
 
+    if os.path.exists(os.path.join(os.getcwd(), "smashbox")): # (is update? or now setup?)
+        is_update = True
+
+    if not is_update:
+        deployment_config, accounts_info = load_config_file(args.auth,is_update)
         current_config = setup_config(deployment_config, accounts_info, is_update)
         smash_run()
-        if not is_update:
-            # install cron job
-            print '\033[94m' + "(3) Installing cron job" + '\033[0m'
 
-            if platform.system() != "Windows":
-                try:
-                    from crontab import CronTab
-                except ImportError:
-                    print("CronTab not present. Installing crontab...")
-                    os.system(sys.executable + " -m easy_install python-crontab")
-                    from crontab import CronTab
+        # install cron job
 
-                #user = os.popen("echo $USER").read().split("\n")[0]
-                my_cron = CronTab("root")
-                current_path = os.path.dirname(os.path.abspath(__file__))
-                job = my_cron.new(command=sys.executable + os.path.join(os.getcwd(), "smash-setup.py"))
-                runtime = current_config['runtime'].split(":")
-                job.setall(runtime[1] + runtime[0] + ' * * *')
-                my_cron.write()
+        if platform.system() != "Windows":
+            try:
+                from crontab import CronTab
+            except ImportError:
+                print("CronTab not present. Installing crontab...")
+                os.system(sys.executable + " -m easy_install python-crontab")
+                from crontab import CronTab
 
+            #user = os.popen("echo $USER").read().split("\n")[0]
+            my_cron = CronTab("root")
+            current_path = os.path.dirname(os.path.abspath(__file__))
+            job = my_cron.new(command=sys.executable + os.path.join(os.getcwd(), "smash-setup.py"))
+            runtime = current_config['runtime'].split(":")
+            job_time = runtime[1] + " " + runtime[0] + " * * *"
+            job.setall(str(job_time))
+            print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
+            my_cron.write()
+
+        else:
+            import sys
+
+            cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config[
+                'runtime'] + " /TR " + sys.executable + os.path.join(os.getcwd(),
+                                                                     "smash-setup.py")  # --repo https://gitlab.cern.ch/ydelahoz/smashbox-deployment-config")
+            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = process.communicate()
+            if (len(stderr) > 0):
+                print "The task cannot be created on Windows - ", stderr
             else:
-                import sys
+                print "The task has been successfully installed"
+    else: # is update
 
-                cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config[
-                    'runtime'] + " /TR " + sys.executable + os.path.join(os.getcwd(),
-                                                                         "smash-setup.py")  # --repo https://gitlab.cern.ch/ydelahoz/smashbox-deployment-config")
-                process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                stdout, stderr = process.communicate()
-                if (len(stderr) > 0):
-                    print "The task cannot be created on Windows - ", stderr
-                else:
-                    print "The task has been successfully installed"
-    else:
+        deployment_config, accounts_info = load_config_file(args.auth,is_update)
+        current_config = setup_config(deployment_config, accounts_info, is_update)
+
         smash_run()
 
 
