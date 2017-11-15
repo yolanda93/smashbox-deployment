@@ -23,6 +23,55 @@ cbox_v = {
     "1.8.3": ["centos7-cernbox","1.8.3.510","1.8.3.499"],
 }
 
+####### monitoring utilities to publish deployment state in kibana ############################################################
+
+def get_monitoring_host():
+    """
+    Get kibana parameters defined in smashbox.conf
+    """
+    smashbox_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf")
+
+    conf_file = open(smashbox_conf, 'r')
+
+    for line in conf_file:
+        if line[0:len("kibana_monitoring_host = ")] == "kibana_monitoring_host = ":
+            monitoring_host = line[len("kibana_monitoring_host = ")::].rsplit('\n')[0].replace('"', '')
+        if line[0:len("kibana_monitoring_port = ")] == "kibana_monitoring_port = ":
+            monitoring_port = line[len("kibana_monitoring_port = ")::].rsplit('\n')[0].replace('"', '')
+
+    return monitoring_host,monitoring_port
+
+
+def publish_deployment_state(deployment_config):
+    """
+    This function publish new configuration deployment
+    in the kibana dashboard
+    """
+    import time
+
+    monitoring_host, monitoring_port = get_monitoring_host()
+    json_result = [{'producer': "cernbox", 'type': "ops", 'hostname': socket.gethostname(),
+                    'timestamp': int(round(time.time() * 1000)),'deployment':deployment_config}]
+
+    send_and_check(json_result,monitoring_host,monitoring_port)
+    return True
+
+def send(document,monitoring_host,monitoring_port):
+    import requests
+    import json
+
+    return requests.post(monitoring_host + ":" + monitoring_port + "/", data=json.dumps(document),
+           headers={"Content-Type": "application/json; charset=UTF-8"})
+
+def send_and_check(document, monitoring_host,monitoring_port, should_fail=False):
+    response = send(document, monitoring_host, monitoring_port)
+    assert (
+    (response.status_code in [200]) != should_fail), 'With document: {0}. Status code: {1}. Message: {2}'.format(
+        document, response.status_code, response.text)
+
+
+####### git repo utilities without using git commands (Windows lack of git on cmd) #############################################
+
 def this_repo_name():
     current_path = os.path.dirname(os.path.abspath(__file__))
     git_config = open(os.path.join(current_path,".git","config"), 'rb')
@@ -35,13 +84,42 @@ def this_repo_name():
 this_repo = this_repo_name()
 print this_repo
 
-def publish_deployment_conf():
+def get_repo_name(repo_url):
+    """ This function is a workaround for Windows
+    lack of git on cmd
     """
-    This function publish new configuration deployment
-    in kibana dashboard
-    """
+    if (repo_url[0:len("https://github.com/")]=="https://github.com/"): #git repo
+        repo_name = repo_url.split("https://github.com/")[1][:-4]
+    else:
+        print "incorrect repo url or git service not supported"
+        exit(0)
+    return repo_name
 
-    return True
+
+def download_repository(repo_url):
+    """ This function is a workaround for Windows
+    lack of git on cmd
+    """
+    repo_name = get_repo_name(repo_url)
+
+    if platform.system() == "Windows":
+        import wget
+        wget.download("http://github.com/" + repo_name + "/archive/master.zip")
+        import zipfile
+        zip_ref = zipfile.ZipFile(os.path.join(os.getcwd(),repo_name.split("/")[1] + "-master.zip"), 'r')
+        zip_ref.extractall(".")
+        zip_ref.close()
+        os.rename(repo_name.split("/")[1] +"-master", repo_name.split("/")[1])
+        os.remove(repo_name.split("/")[1] +"-master.zip")
+
+    else: # use git
+        if is_update:
+            os.system("git pull " + os.path.join(os.getcwd(),repo_name.split("/")[1]))
+        else:
+            os.system("git clone " + "http://github.com/" + repo_name + ".git")
+
+
+####### utilities for this installation script #################################################################################
 
 def smash_run():
     print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m'
@@ -82,7 +160,7 @@ def install_oc_client(version):
 
 def config_smashbox(oc_account_name, oc_account_password, oc_server, ssl_enabled, kibana_activity):
     print '\033[94m' + "Installing/updating smashbox" + '\033[0m'
-    new_smash_conf = os.path.join(os.getcwd(),"smashbox","etc","smashbox.conf")
+    new_smash_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf")
     shutil.copyfile("auto-smashbox.conf",new_smash_conf)
     f = open(new_smash_conf, 'a')
 
@@ -116,41 +194,6 @@ def get_oc_sync_cmd_path():
 
 def backup_results():
     return True
-
-
-def get_repo_name(repo_url):
-    """ This function is a workaround for Windows
-    lack of git on cmd
-    """
-    if (repo_url[0:len("https://github.com/")]=="https://github.com/"): #git repo
-        repo_name = repo_url.split("https://github.com/")[1][:-4]
-    else:
-        print "incorrect repo url or git service not supported"
-        exit(0)
-    return repo_name
-
-
-def download_repository(repo_url):
-    """ This function is a workaround for Windows
-    lack of git on cmd
-    """
-    repo_name = get_repo_name(repo_url)
-
-    if platform.system() == "Windows":
-        import wget
-        wget.download("http://github.com/" + repo_name + "/archive/master.zip")
-        import zipfile
-        zip_ref = zipfile.ZipFile(os.path.join(os.getcwd(),repo_name.split("/")[1] + "-master.zip"), 'r')
-        zip_ref.extractall(".")
-        zip_ref.close()
-        os.rename(repo_name.split("/")[1] +"-master", repo_name.split("/")[1])
-        os.remove(repo_name.split("/")[1] +"-master.zip")
-
-    else: # use git
-        if is_update:
-            os.system("git pull " + os.path.join(os.getcwd(),repo_name.split("/")[1]))
-        else:
-            os.system("git clone " + "http://github.com/" + repo_name + ".git")
 
 
 def setup_python():
@@ -223,8 +266,10 @@ def setup_config(deployment_config, accounts_info,is_update):
     for row in deployment_config:
         if(row["hostname"]==socket.gethostname()):
             this_host_config = row
+            row["state"] = "Active"
 
     if not this_host_config:
+        this_host_config["state"] = "Deleted"
         print "this host has been removed from the configuration files; please manually delete this vm"
         exit(0)
     else:
@@ -272,10 +317,7 @@ def load_config_files(auth_file="auth.conf", is_update=False):
 
     for line in authfile:
         if line[0:len("oc_account_name = ")] == "oc_account_name = ":
-            if platform.system()!="Windows":
-               accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\n')[0]
-            else:
-               accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\r')[0]
+            accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\n')[0]
         if line[0:len("oc_account_password = ")] == "oc_account_password = ":
             accounts_info["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
 
@@ -311,6 +353,9 @@ if __name__== '__main__':
     if os.path.exists(os.path.join(os.getcwd(), "smashbox")): # check if the current script execution is update? or now setup? (no smashbox folder in new setups)
         is_update = True
 
+    if platform.system() == "Windows":  # if windows removed the "smashbox-deploymnet" folder (this folder is incorrectly leaved after updates)
+        shutil.rmtree(get_repo_name(this_repo).split("/")[1])
+
     # 1) Load the configutation files ( get updated deployment_architecture if is_update)
     deployment_config, accounts_info = load_config_files(args.auth, is_update)
     # 2) Setup smashbox and oc_client with the new/updated "deployment_architecture" and "auth" configuration
@@ -318,7 +363,8 @@ if __name__== '__main__':
     # 3) Run smashbox
     smash_run()
     # 4) Publish new deployment architecture info into kibana dashboard
-    #publish_deployment_conf()
+    publish_deployment_state(current_config)
+
 
 
     if not is_update:
