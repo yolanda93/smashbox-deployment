@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!\Python27\python
 import argparse
 import sys
 import os
@@ -101,23 +101,36 @@ def download_repository(repo_url):
     lack of git on cmd
     """
     repo_name = get_repo_name(repo_url)
+    print repo_name
 
     if platform.system() == "Windows":
+        this_filepath = os.path.dirname(os.path.abspath(__file__))
         import wget
         wget.download("http://github.com/" + repo_name + "/archive/master.zip")
+        shutil.move(os.path.join(os.getcwd(),repo_name.split("/")[1] + "-master.zip"),os.path.join(os.path.dirname(os.path.abspath(__file__)),repo_name.split("/")[1] + "-master.zip"))
         import zipfile
-        zip_ref = zipfile.ZipFile(os.path.join(os.getcwd(),repo_name.split("/")[1] + "-master.zip"), 'r')
-        zip_ref.extractall(".")
+        print repo_name
+        zip_ref = zipfile.ZipFile(os.path.join(os.path.dirname(os.path.abspath(__file__)),repo_name.split("/")[1] + "-master.zip"), 'r')
+        zip_ref.extractall(this_filepath)
         zip_ref.close()
-        os.rename(repo_name.split("/")[1] +"-master", repo_name.split("/")[1])
-        os.remove(repo_name.split("/")[1] +"-master.zip")
+        os.rename(os.path.join(this_filepath,repo_name.split("/")[1] +"-master"), os.path.join(this_filepath,repo_name.split("/")[1]))
+        os.remove(os.path.join(this_filepath,repo_name.split("/")[1] +"-master.zip"))
 
     else: # use git
         if is_update:
-            os.system("git pull " + os.path.join(os.getcwd(),repo_name.split("/")[1]))
+            os.system("git pull " + os.path.join(os.path.dirname(os.path.abspath(__file__)),repo_name.split("/")[1]))
         else:
             os.system("git clone " + "http://github.com/" + repo_name + ".git")
 
+def remove_old_folders():
+
+    tmp_folder1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), get_repo_name(this_repo).split("/")[1])
+    if os.path.exists(tmp_folder1) :  # if windows removed the "smashbox-deploymnet" folder (this folder is incorrectly leaved after updates)
+        shutil.rmtree(tmp_folder1)
+
+    tmp_folder2 = os.path.join(os.path.dirname(os.path.abspath(__file__)), "smashbox")
+    if os.path.exists(tmp_folder2) :  # if windows removed the "smashbox" folder (this folder is incorrectly leaved after updates)
+        shutil.rmtree(tmp_folder2)
 
 ####### utilities for this installation script #################################################################################
 
@@ -161,7 +174,7 @@ def install_oc_client(version):
 def config_smashbox(oc_account_name, oc_account_password, oc_server, ssl_enabled, kibana_activity):
     print '\033[94m' + "Installing/updating smashbox" + '\033[0m'
     new_smash_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf")
-    shutil.copyfile("auto-smashbox.conf",new_smash_conf)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)),"auto-smashbox.conf"),new_smash_conf)
     f = open(new_smash_conf, 'a')
 
     f.write('oc_account_name =' + '"{}"'.format(oc_account_name) + '\n')
@@ -275,9 +288,10 @@ def setup_config(deployment_config, accounts_info,is_update):
     else:
         if not is_update:
             setup_python()
-            download_repository("https://github.com/cernbox/smashbox.git")
             import pip
             pip.main(['install', 'pyocclient'])
+
+        download_repository("https://github.com/cernbox/smashbox.git")
 
         check_oc_client_installation(this_host_config)
 
@@ -300,18 +314,18 @@ def load_config_files(auth_file="auth.conf", is_update=False):
     if is_update: # update repo to get the new "deployment_architecture.csv"
         if platform.system() == "Windows":
             download_repository(this_repo)
-            deploy_file = os.path.join(os.getcwd(), "smashbox-deployment", "deployment_architecture.csv")
+            deploy_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "smashbox-deployment", "deployment_architecture.csv")
         else:
             os.system("git pull " + os.getcwd())
 
     if not deploy_file: # get the deployment file from the current project
-        deploy_file = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f)) and f=='deployment_architecture.csv' ][0]
+        deploy_file = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f=='deployment_architecture.csv' ][0]
         if deploy_file == "":
             print "Missing deployment configuration file: 'deployment_architecture.csv'"
             exit(0)
 
     try:
-        authfile = open(auth_file, 'rb')
+        authfile = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), auth_file), 'rb')
     except IOError:
         print "Could not read file:", auth_file
 
@@ -323,7 +337,7 @@ def load_config_files(auth_file="auth.conf", is_update=False):
 
     if deploy_file[-3:] == "csv":
         try:
-            csvfile = open(deploy_file, 'rb')
+            csvfile = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), deploy_file), 'rb')
             deploy_configuration = csv.DictReader(csvfile)
         except IOError:
             print "Could not read file: ", deploy_file
@@ -350,23 +364,23 @@ if __name__== '__main__':
     is_update = False
     current_config = dict()
 
-    if os.path.exists(os.path.join(os.getcwd(), "smashbox")): # check if the current script execution is update? or now setup? (no smashbox folder in new setups)
+    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "smashbox")): # check if the current script execution is update? or now setup? (no smashbox folder in new setups)
         is_update = True
 
-    if platform.system() == "Windows":  # if windows removed the "smashbox-deploymnet" folder (this folder is incorrectly leaved after updates)
-        shutil.rmtree(get_repo_name(this_repo).split("/")[1])
+    if platform.system() == "Windows":
+        remove_old_folders()
+
 
     # 1) Load the configutation files ( get updated deployment_architecture if is_update)
     deployment_config, accounts_info = load_config_files(args.auth, is_update)
     # 2) Setup smashbox and oc_client with the new/updated "deployment_architecture" and "auth" configuration
     current_config = setup_config(deployment_config, accounts_info, is_update)
     # 3) Run smashbox
-    smash_run()
+    #smash_run()
     # 4) Publish new deployment architecture info into kibana dashboard
     publish_deployment_state(current_config)
 
-
-
+    is_update=False
     if not is_update:
         # install cron job
 
@@ -381,7 +395,7 @@ if __name__== '__main__':
             #user = os.popen("echo $USER").read().split("\n")[0]
             my_cron = CronTab("root")
             current_path = os.path.dirname(os.path.abspath(__file__))
-            job = my_cron.new(command=sys.executable + os.path.join(os.getcwd(), "smash-setup.py"))
+            job = my_cron.new(command=sys.executable + " " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.py"))
             runtime = current_config['runtime'].split(":")
             job_time = runtime[1] + " " + runtime[0] + " * * *"
             job.setall(str(job_time))
@@ -391,9 +405,10 @@ if __name__== '__main__':
         else:
             import sys
 
-            cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config[
-                'runtime'] + " /TR " + sys.executable + os.path.join(os.getcwd(),
-                                                                     "smash-setup.py")  # --repo https://gitlab.cern.ch/ydelahoz/smashbox-deployment-config")
+            print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'
+            this_exec_path =  os.path.join(os.path.dirname(os.path.abspath(__file__)),"setup.py" + "'")
+
+            cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config['runtime'] + " /TR " + this_exec_path + " /F" # /F is to force the overwrite of the existing scheduled task
             process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout, stderr = process.communicate()
             if (len(stderr) > 0):
