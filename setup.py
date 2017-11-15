@@ -376,11 +376,10 @@ if __name__== '__main__':
     # 2) Setup smashbox and oc_client with the new/updated "deployment_architecture" and "auth" configuration
     current_config = setup_config(deployment_config, accounts_info, is_update)
     # 3) Run smashbox
-    #smash_run()
+    smash_run()
     # 4) Publish new deployment architecture info into kibana dashboard
     publish_deployment_state(current_config)
 
-    is_update=False
     if not is_update:
         # install cron job
 
