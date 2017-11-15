@@ -40,12 +40,20 @@ def publish_deployment_conf():
     This function publish new configuration deployment
     in kibana dashboard
     """
+
     return True
 
 def smash_run():
     print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m'
     current_path = os.path.dirname(os.path.abspath(__file__))
-    os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going " + current_path + "/smashbox/lib/")
+    cmd = sys.executable + " " + current_path + "/smashbox/bin/smash " + current_path + "/smashbox/lib/test_nplusone.py"
+    try:
+        subprocess.check_output(cmd)
+    except subprocess.CalledProcessError as e:
+        print "Smashbox installation failed: Non-zero exit code after running smashbox"
+
+    os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going " + current_path + "/smashbox/lib/") # run smashbox normally
+
 
 def install_oc_client(version):
     import wget
@@ -72,7 +80,7 @@ def install_oc_client(version):
         os.system("cernbox-" + cbox_v[version][2] +"-setup.exe /S")
         os.remove("cernbox-" + cbox_v[version][2] +"-setup.exe")
 
-def configure_smashbox(oc_account_name,oc_account_password,oc_server,ssl_enabled):
+def config_smashbox(oc_account_name, oc_account_password, oc_server, ssl_enabled, kibana_activity):
     print '\033[94m' + "Installing/updating smashbox" + '\033[0m'
     new_smash_conf = os.path.join(os.getcwd(),"smashbox","etc","smashbox.conf")
     shutil.copyfile("auto-smashbox.conf",new_smash_conf)
@@ -87,21 +95,24 @@ def configure_smashbox(oc_account_name,oc_account_password,oc_server,ssl_enabled
     else:
         f.write('oc_ssl_enabled =' + "False" + '\n')
 
-    if platform.system() == "Linux" or platform.system() == "linux2":  # linux
-        location = os.popen("whereis cernboxcmd").read()
-        path = "/" + location.split("cernboxcmd")[1].split(": /")[1] + "cernboxcmd --trust"
-    elif platform.system() == "darwin":
-        path = "/Applications/cernbox.app/Contents/MacOS/cernboxcmd --trust"
-    elif platform.system() == "Windows":
-        path =  "['C:\Program Files (x86)\cernbox\cernboxcmd.exe','--trust']"
+    oc_sync_path = get_oc_sync_cmd_path()
+    f.write("oc_sync_cmd =" + str(oc_sync_path) + '\n')
 
-    if platform.system() != "Windows":
-        f.write("oc_sync_cmd =" + '"{}"'.format(path))
-    else:
-        f.write("oc_sync_cmd =" + path)
+    f.write('kibana_activity =' + '"{}"'.format(kibana_activity) + '\n')
 
     f.close()
 
+
+def get_oc_sync_cmd_path():
+    if platform.system() == "Windows":
+        path = ['C:\Program Files (x86)\cernbox\cernboxcmd.exe', '--trust']
+    elif platform.system() == "Linux":
+        location = os.popen("whereis cernboxcmd").read()
+        path = "/" + location.split("cernboxcmd")[1].split(": /")[1] + "cernboxcmd --trust"
+    elif platform.system() == "Darwin":
+        path = "/Applications/cernbox.app/Contents/MacOS/cernboxcmd --trust"
+
+    return path
 
 def backup_results():
     return True
@@ -143,6 +154,8 @@ def download_repository(repo_url):
 
 
 def setup_python():
+    """ Setup some needed python packages for the execution of this script
+    """
     try:
         import wget
     except ImportError:
@@ -175,25 +188,43 @@ def setup_python():
 
 def ocsync_version(oc_sync_cmd):
     """ Return the version reported by oc_sync_cmd.
-    Returns a tuple (major,minor,bugfix). For example: (1,7,2) or (2,1,1)
+     :return a tuple (major,minor,bugfix). For example: (1,7,2) or (2,1,1)
     """
     # strip possible options from config.oc_sync_cmd
     cmd = [oc_sync_cmd[0]] + ["--version"]
-    process = subprocess.Popen(cmd, shell=False,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    stdout,stderr = process.communicate()
+    try:
+        process = subprocess.Popen(cmd, shell=False,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout,stderr = process.communicate()
+    except WindowsError:
+        return ""
 
     sver = stdout.strip().split()[2]  # the version is the third argument
 
     return tuple([int(x) for x in sver.split(".")])
 
+def check_oc_client_installation(config):
+    """ It checks owncloud client installation and it installs a new
+    version (if required)
+    """
+    version_tuple = ocsync_version(get_oc_sync_cmd_path())
+    installed_version = str(version_tuple)[1:-1].replace(", ", ".")
+
+    if (config["oc_client"] != installed_version): # TODO: check if it is needed to unistall first previous version
+        install_oc_client(config["oc_client"])  # update version
 
 def setup_config(deployment_config, accounts_info,is_update):
-    current_config = dict()
+    """ This method installs oc_client and smashbox with the current host and
+     the parameters (oc_client_version, oc_server, accounts_info).
+    These parameters are defined in deployment_config (deployment_architecture.csv)
+    :return this_host_config with the corresponding deployment
+    configuration for this host
+    """
+    this_host_config = dict()
     for row in deployment_config:
         if(row["hostname"]==socket.gethostname()):
-            current_config = row
+            this_host_config = row
 
-    if not current_config:
+    if not this_host_config:
         print "this host has been removed from the configuration files; please manually delete this vm"
         exit(0)
     else:
@@ -203,34 +234,32 @@ def setup_config(deployment_config, accounts_info,is_update):
             import pip
             pip.main(['install', 'pyocclient'])
 
-        # check owncloud client version installation
-        if platform.system() == "Windows":
-            version_tuple = ocsync_version(['C:\Program Files (x86)\cernbox\cernboxcmd.exe','--trust'])
-            version = str(version_tuple)[1:-1].replace(", ",".")
-        else:
-            version = ocsync_version("/usr/bin/cernboxcmd --trust")
-
-        if(current_config["oc_client"]!=version):
-            install_oc_client(current_config["oc_client"])# update version
+        check_oc_client_installation(this_host_config)
 
         # configurate smashbox
-        configure_smashbox(accounts_info["oc_account_name"], accounts_info["oc_account_password"], current_config["oc_server"],current_config["ssl_enabled"])
-    return current_config
+        config_smashbox(accounts_info["oc_account_name"], accounts_info["oc_account_password"], this_host_config["oc_server"], this_host_config["ssl_enabled"],this_host_config["kibana_activity"])
+
+    return this_host_config
 
 
-def load_config_file(auth_file="auth.conf",is_update=False):
+def load_config_files(auth_file="auth.conf", is_update=False):
+    """ This method loads the config file "auth.conf" passed to
+    the script as argument and the "deployment_architecture.csv"
+    :return deploy_configuration with the architecture as a dict
+    and account_info as a dict with oc_account_name and oc_account_password
+    """
     deploy_configuration = dict()
     accounts_info = dict()
+    deploy_file = None
 
-    if is_update:
+    if is_update: # update repo to get the new "deployment_architecture.csv"
         if platform.system() == "Windows":
             download_repository(this_repo)
+            deploy_file = os.path.join(os.getcwd(), "smashbox-deployment", "deployment_architecture.csv")
         else:
             os.system("git pull " + os.getcwd())
 
-    if platform.system() == "Windows" and is_update:
-        deploy_file = os.path.join(os.getcwd(), "smashbox-deployment", "deployment_architecture.csv")
-    else:
+    if not deploy_file: # get the deployment file from the current project
         deploy_file = [f for f in listdir(os.getcwd()) if isfile(join(os.getcwd(), f)) and f=='deployment_architecture.csv' ][0]
         if deploy_file == "":
             print "Missing deployment configuration file: 'deployment_architecture.csv'"
@@ -255,9 +284,9 @@ def load_config_file(auth_file="auth.conf",is_update=False):
             csvfile = open(deploy_file, 'rb')
             deploy_configuration = csv.DictReader(csvfile)
         except IOError:
-            print "Could not read file:", deploy_file
+            print "Could not read file: ", deploy_file
     else:
-        print "Wrong file format:", deploy_file
+        print "Wrong file format: ", deploy_file
         exit(0)
 
     return deploy_configuration, accounts_info
@@ -279,12 +308,18 @@ if __name__== '__main__':
     is_update = False
     current_config = dict()
 
-    if os.path.exists(os.path.join(os.getcwd(), "smashbox")): # (is update? or now setup?)
+    if os.path.exists(os.path.join(os.getcwd(), "smashbox")): # check if the current script execution is update? or now setup? (no smashbox folder in new setups)
         is_update = True
 
-    deployment_config, accounts_info = load_config_file(args.auth,is_update)
+    # 1) Load the configutation files ( get updated deployment_architecture if is_update)
+    deployment_config, accounts_info = load_config_files(args.auth, is_update)
+    # 2) Setup smashbox and oc_client with the new/updated "deployment_architecture" and "auth" configuration
     current_config = setup_config(deployment_config, accounts_info, is_update)
+    # 3) Run smashbox
     smash_run()
+    # 4) Publish new deployment architecture info into kibana dashboard
+    #publish_deployment_conf()
+
 
     if not is_update:
         # install cron job
