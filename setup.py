@@ -380,40 +380,46 @@ if __name__== '__main__':
     # 4) Publish new deployment architecture info into kibana dashboard
     publish_deployment_state(current_config)
 
-    if not is_update:
-        # install cron job
+    # 5) install cron job
 
-        if platform.system() != "Windows":
-            try:
-                from crontab import CronTab
-            except ImportError:
-                print("CronTab not present. Installing crontab...")
-                os.system(sys.executable + " -m easy_install python-crontab")
-                from crontab import CronTab
+    if platform.system() != "Windows":
+        try:
+            from crontab import CronTab
+        except ImportError:
+            print("CronTab not present. Installing crontab...")
+            os.system(sys.executable + " -m easy_install python-crontab")
+            from crontab import CronTab
 
-            #user = os.popen("echo $USER").read().split("\n")[0]
-            my_cron = CronTab("root")
+        runtime = current_config['runtime'].split(":")
+        job_time = runtime[1] + " " + runtime[0] + " * * *"
+        print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
+        #user = os.popen("echo $USER").read().split("\n")[0]
+        my_cron = CronTab("root") # This installation script needs to be run as root
+
+        job_is_updated = False
+        for job in my_cron:
+            if job.comment == 'smashbox-' + current_config['runtime']:
+                job_is_updated = True
+
+        if not job_is_updated: # Install cron job
             current_path = os.path.dirname(os.path.abspath(__file__))
-            job = my_cron.new(command=sys.executable + " " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.py"))
-            runtime = current_config['runtime'].split(":")
-            job_time = runtime[1] + " " + runtime[0] + " * * *"
+            job = my_cron.new(command=sys.executable + " " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.py"), comment='smashbox-' + current_config['runtime'])
             job.setall(str(job_time))
-            print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
             my_cron.write()
 
+    else:
+        import sys
+
+        print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'
+        this_exec_path =  os.path.join(os.path.dirname(os.path.abspath(__file__)),"setup.py" + "'")
+
+        cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config['runtime'] + " /TR " + this_exec_path + " /F" # /F is to force the overwrite of the existing scheduled task
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if (len(stderr) > 0):
+            print "The task cannot be created on Windows - ", stderr
         else:
-            import sys
-
-            print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'
-            this_exec_path =  os.path.join(os.path.dirname(os.path.abspath(__file__)),"setup.py" + "'")
-
-            cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config['runtime'] + " /TR " + this_exec_path + " /F" # /F is to force the overwrite of the existing scheduled task
-            process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = process.communicate()
-            if (len(stderr) > 0):
-                print "The task cannot be created on Windows - ", stderr
-            else:
-                print "The task has been successfully installed"
+            print "The task has been successfully installed"
 
 
 
