@@ -216,13 +216,13 @@ def setup_python():
         import wget
     except ImportError:
         print("wget not present. Installing wget...")
-        os.system(sys.executable + " -m easy_install pycurl")
+        os.system(sys.executable + " -m easy_install wget")
         import wget
 
     try:
         import urllib2
     except ImportError:
-        print("wget not present. Installing urllib2...")
+        print("urllib2 not present. Installing urllib2...")
         os.system(sys.executable + " -m easy_install urllib2")
         import wget
 
