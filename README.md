@@ -8,7 +8,7 @@ We deploy smashbox with the following purposes:
    * Behaviour comparison of the sync client with different configurations: platforms, cernbox client versions and endpoints
    * Test the sync client installation on different platforms (e.g., Windows, CentOS, MacOSX)
 
-Currently, it is possible to deploy smashbox in your current machine, a cluster of VMs in OpenStack or within a set of containers using Docker. Finally, this document also describes how to visualize and analyse the test results with kibana (table of contents)
+Currently, it is possible to deploy smashbox in your current machine, a cluster of VMs in OpenStack or within a set of containers using Docker. Finally, this document also describes how to visualize and analyse the test results with kibana (instructions)
 
 project tree   
 =================
@@ -27,7 +27,7 @@ This repository is organised in the following way:
 
 </pre>
 
-table of contents
+Instructions
 =================
   - [Deploy and set up a testing cluster of VMs (Openstack)](#Openstack)
   - [Deploy and set up a testing cluster of containers (Docker)](#Docker)
