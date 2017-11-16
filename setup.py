@@ -171,15 +171,15 @@ def install_oc_client(version):
         os.system("cernbox-" + cbox_v[version][2] +"-setup.exe /S")
         os.remove("cernbox-" + cbox_v[version][2] +"-setup.exe")
 
-def config_smashbox(oc_account_name, oc_account_password, oc_server, ssl_enabled, kibana_activity):
+def generate_config_smashbox(oc_account_name, oc_account_password, endpoint, ssl_enabled, kibana_activity):
     print '\033[94m' + "Installing/updating smashbox" + '\033[0m'
-    new_smash_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf")
+    new_smash_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox-" + endpoint + ".conf" )
     shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)),"auto-smashbox.conf"),new_smash_conf)
     f = open(new_smash_conf, 'a')
 
     f.write('oc_account_name =' + '"{}"'.format(oc_account_name) + '\n')
     f.write('oc_account_password =' + '"{}"'.format(oc_account_password) + '\n')
-    f.write('oc_server =' + '"{}"'.format(oc_server + "/cernbox/desktop") + '\n')
+    f.write('oc_server =' + '"{}"'.format(endpoint + "/cernbox/desktop") + '\n')
 
     if ssl_enabled:
         f.write('oc_ssl_enabled =' + "True" + '\n')
@@ -241,6 +241,49 @@ def setup_python():
             os.system(sys.executable + " -m easy_install pycurl")
             import pycurl
 
+def create_cron_job():
+    """ This is the method to create the cron jobs
+    """
+
+    if platform.system() != "Windows":
+        try:
+            from crontab import CronTab
+        except ImportError:
+            print("CronTab not present. Installing crontab...")
+            os.system(sys.executable + " -m easy_install python-crontab")
+            from crontab import CronTab
+
+        runtime = current_config['runtime'].split(":")
+        job_time = runtime[1] + " " + runtime[0] + " * * *"
+        print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
+        #user = os.popen("echo $USER").read().split("\n")[0]
+        my_cron = CronTab("root") # This installation script needs to be run as root
+
+        job_is_updated = False
+        for job in my_cron:
+            if job.comment == 'smashbox-' + current_config['runtime']:
+                job_is_updated = True
+
+        if not job_is_updated: # Install cron job
+            current_path = os.path.dirname(os.path.abspath(__file__))
+            job = my_cron.new(command=sys.executable + " " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.py"), comment='smashbox-' + current_config['runtime'])
+            job.setall(str(job_time))
+            my_cron.write()
+
+    else:
+        import sys
+
+        print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'
+        this_exec_path =  os.path.join(os.path.dirname(os.path.abspath(__file__)),"setup.py" + "'")
+
+        cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config['runtime'] + " /TR " + this_exec_path + " /F" # /F is to force the overwrite of the existing scheduled task
+        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
+        if (len(stderr) > 0):
+            print "The task cannot be created on Windows - ", stderr
+        else:
+            print "The task has been successfully installed"
+
 
 def ocsync_version(oc_sync_cmd):
     """ Return the version reported by oc_sync_cmd.
@@ -251,7 +294,7 @@ def ocsync_version(oc_sync_cmd):
     try:
         process = subprocess.Popen(cmd, shell=False,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
         stdout,stderr = process.communicate()
-    except WindowsError:
+    except:
         return ""
 
     sver = stdout.strip().split()[2]  # the version is the third argument
@@ -296,10 +339,10 @@ def setup_config(deployment_config, accounts_info,is_update):
         check_oc_client_installation(this_host_config)
 
         # configurate smashbox
-        config_smashbox(accounts_info["oc_account_name"], accounts_info["oc_account_password"], this_host_config["oc_server"], this_host_config["ssl_enabled"],this_host_config["kibana_activity"])
+        for endpoint in this_host_config["oc_server"]:
+            generate_config_smashbox(accounts_info["oc_account_name"], accounts_info["oc_account_password"],endpoint, this_host_config["ssl_enabled"],this_host_config["kibana_activity"])
 
     return this_host_config
-
 
 def load_config_files(auth_file="auth.conf", is_update=False):
     """ This method loads the config file "auth.conf" passed to
@@ -331,7 +374,10 @@ def load_config_files(auth_file="auth.conf", is_update=False):
 
     for line in authfile:
         if line[0:len("oc_account_name = ")] == "oc_account_name = ":
-            accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].split('\n')[0]
+            if platform.system() == "Windows":
+                accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\r')[0]
+            else:
+                accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\n')[0]
         if line[0:len("oc_account_password = ")] == "oc_account_password = ":
             accounts_info["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
 
@@ -379,47 +425,8 @@ if __name__== '__main__':
     smash_run()
     # 4) Publish new deployment architecture info into kibana dashboard
     publish_deployment_state(current_config)
-
     # 5) install cron job
-
-    if platform.system() != "Windows":
-        try:
-            from crontab import CronTab
-        except ImportError:
-            print("CronTab not present. Installing crontab...")
-            os.system(sys.executable + " -m easy_install python-crontab")
-            from crontab import CronTab
-
-        runtime = current_config['runtime'].split(":")
-        job_time = runtime[1] + " " + runtime[0] + " * * *"
-        print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
-        #user = os.popen("echo $USER").read().split("\n")[0]
-        my_cron = CronTab("root") # This installation script needs to be run as root
-
-        job_is_updated = False
-        for job in my_cron:
-            if job.comment == 'smashbox-' + current_config['runtime']:
-                job_is_updated = True
-
-        if not job_is_updated: # Install cron job
-            current_path = os.path.dirname(os.path.abspath(__file__))
-            job = my_cron.new(command=sys.executable + " " + os.path.join(os.path.dirname(os.path.abspath(__file__)), "setup.py"), comment='smashbox-' + current_config['runtime'])
-            job.setall(str(job_time))
-            my_cron.write()
-
-    else:
-        import sys
-
-        print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'
-        this_exec_path =  os.path.join(os.path.dirname(os.path.abspath(__file__)),"setup.py" + "'")
-
-        cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config['runtime'] + " /TR " + this_exec_path + " /F" # /F is to force the overwrite of the existing scheduled task
-        process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-        if (len(stderr) > 0):
-            print "The task cannot be created on Windows - ", stderr
-        else:
-            print "The task has been successfully installed"
+    create_cron_job()
 
 
 
