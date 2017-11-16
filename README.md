@@ -34,10 +34,6 @@ table of contents
   - [Manually set up a machine for continuos testing and monitoring](#Setting-up-a-machine)
   - [Monitoring and Analysis with kibana](#Monitoring)
 
-<h3 id="Setting-up-a-machine">Manually set up a machine for continuos testing and monitoring</h3>
-
-The documentation and steps to manually setup a machine are in: `./documentation`
-
 <h3 id="Openstack"> Deploy and set up a testing cluster of VMs (Openstack)</h3>
 
 If you want to set up a machine for continuos testing and monitoring with smashbox, you can execute the script `setup.py`. This script is developed to automatically and dinamically install the OwnCloud client, configure smashbox and install the cron job. The steps to use this script are the followings:
@@ -91,6 +87,10 @@ The `docker build` should make reference to the dockerfile with the image desire
   SMASHBOX_TESTDIR
   SMASHBOX_SSL_ENABLED
 ```
+
+<h3 id="Setting-up-a-machine">Manually set up a machine for continuos testing and monitoring</h3>
+
+The documentation and steps to manually setup a machine are in: `./documentation`
 
 <h3 id="Monitoring">Monitoring and Analysis with kibana</h3>
 
