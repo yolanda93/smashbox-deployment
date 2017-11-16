@@ -29,41 +29,50 @@ This repository is organised in the following way:
 
 table of contents
 =================
-
+  - [Deploy and set up a testing cluster of VMs (Openstack)](#Openstack)
+  - [Deploy and set up a testing cluster of containers (Docker)](#Docker)
   - [Manually set up a machine for continuos testing and monitoring](#Setting-up-a-machine)
-  - [Deploy and set up a cluster of VMs (Openstack) to continuosly run tests with different configurations](#Openstack)
-  - [Deploy and set up a set of containers (Docker) to continuosly run tests with different configurations](#Docker)
   - [Monitoring and Analysis with kibana](#Monitoring)
 
 <h3 id="Setting-up-a-machine">Manually set up a machine for continuos testing and monitoring</h3>
 
 The documentation and steps to manually setup a machine are in: `./documentation`
 
-<h3 id="Openstack"> Deploy and set up a cluster of VMs (Openstack) to continuosly run tests with different configurations</h3>
+<h3 id="Openstack"> Deploy and set up a testing cluster of VMs (Openstack)</h3>
 
-If you want to set up a machine for continuos testing and monitoring with smashbox, you can execute the script `setup.py`. This script is developed to automatically and dinamically install the OwnCloud client, configuring smashbox and installing the cron job.
+If you want to set up a machine for continuos testing and monitoring with smashbox, you can execute the script `setup.py`. This script is developed to automatically and dinamically install the OwnCloud client, configure smashbox and install the cron job. The steps to use this script are the followings:
 
-This python script reads a configuration file stored in this repository called "deployment_architecture.csv" with the following parameters:
+###### (1) Manually create a set of VMs in OpenStack. These VMs should follow the naming convention:
 
-|    hostname    |  platform | oc_client | oc_server |  runtime  |  oc_username |  oc_password | ssl_enabled |
-|:--------------:|:---------:|:---------:|:---------:|:---------:|-------------:|-------------:|------------:|
-| osx-buildnode  |   MacOSX  | beryl_aq  |   2.3.3   | cernbox.c |    user1     |  password1   |     True    |
+smash-"platform"-"oc_client_version". For example: `smash-win10-233`
+
+###### (2) Indicate the configuration of each of these machines in `./deployment_architecture.csv` 
+
+The `./deployment_architecture.csv` file should be stored in the root path of this repository and it contains the following parameters:
+
+
+|    hostname    |  platform | oc_client |      oc_server      |  runtime        |  ssl_enabled |  kibana_activity   |
+|:--------------:|:---------:|:---------:|:-------------------:|:---------------:|-------------:|-------------------:|
+| osx-buildnode  |   MacOSX  |   2.3.3   |   cernbox.cern.ch   | cernbox.cern.ch |    True      |   smashbox-deploy  |
+
 
 Once the machine has been set up, the machine will be configured to read periodically from this configuration file to apply changes (if neccesary).
 
-An example of execution of this script:
+###### (3) Enter in each VM and execute this installation script `setup.py` as follows:
+
 ```
 python setup.py --auth auth.conf
 ```
+
 The auth.conf is a file required by the application with the following confidential information (owncloud login username and password):
 ```
 oc_account_name = user1  
 oc_account_password = password1
 ```
 
-Alternatively, you can manually set up the machine with the documentation available in `documentation`.
+Note: Alternatively, you can manually set up the machine with the documentation available in `documentation`.
 
-<h3 id="Docker">Deploy and set up a set of containers (Docker) to continuosly run tests with different configurations</h3>
+<h3 id="Docker">Deploy and set up a testing cluster of containers (Docker)</h3>
 
 If you want to set up the cluster with containers. You should run the following commands:
 ```
