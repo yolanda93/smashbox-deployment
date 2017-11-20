@@ -58,7 +58,7 @@ Once the machine has been set up, the machine will be configured to read periodi
 ###### (3) Enter in each VM and execute this installation script `setup.py` as follows:
 
 ```
-python setup.py --auth auth.conf
+python setup.py --auth auth.conf auth-endpointName.conf
 ```
 
 The auth.conf is a file required by the application with the following confidential information (owncloud login username and password):
