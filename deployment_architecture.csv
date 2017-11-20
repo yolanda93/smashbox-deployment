@@ -1,4 +1,0 @@
-hostname,platform,oc_client,oc_server,runtime,ssl_enabled,kibana_activity
-DESKTOP-SJNVR9L,Windows,2.3.3,cernbox.cern.ch,08:10,True,smashbox-deploy
-yolandadep,Linux,2.3.3,cernbox.cern.ch,18:10,True,smashbox-deploy
-cbox-cc7-georg.cern.ch,Linux,2.3.3,cernbox.cern.ch,20:00,True,smashbox-gerorgios
