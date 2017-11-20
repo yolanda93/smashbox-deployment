@@ -47,9 +47,10 @@ smash-"platform"-"oc_client_version". For example: `smash-win10-233`
 The `./deployment_architecture.csv` file should be stored in the root path of this repository and it contains the following parameters:
 
 
-|    hostname    |  platform | oc_client |      oc_server      |  runtime        |  ssl_enabled |  kibana_activity   |
-|:--------------:|:---------:|:---------:|:-------------------:|:---------------:|-------------:|-------------------:|
-| osx-buildnode  |   MacOSX  |   2.3.3   |   cernbox.cern.ch   | cernbox.cern.ch |    True      |   smashbox-deploy  |
+|    hostname    |  platform | oc_client |      oc_enpoints                |     runtime     |  ssl_enabled        |  kibana_activity   |
+|:--------------:|:---------:|:---------:|:-------------------------------:|:---------------:|---------------------:|-------------------:|
+| osx-buildnode  |   MacOSX  |   2.3.3   |   "oc_endpoint1, oc_endpoint2"  |      20:00      |    "True, False"     |   smashbox-deploy  |
+
 
 
 Once the machine has been set up, the machine will be configured to read periodically from this configuration file to apply changes (if neccesary).
@@ -65,6 +66,7 @@ The auth.conf is a file required by the application with the following confident
 oc_account_name = user1  
 oc_account_password = password1
 ```
+You need to define at least one `auth-default.conf` with occ username and password and another with the naming convenction: `auth-endpointName.conf`; where endpointName is the name of the endpoint that must use this username and password.  
 
 Note: Alternatively, you can manually set up the machine with the documentation available in `documentation`.
 

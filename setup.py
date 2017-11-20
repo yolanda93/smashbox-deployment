@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import platform
 
+deployment_config_link = "https://cernbox.cern.ch/index.php/s/65BChf3cbz7OoDe/download"
+
 # linux, macosx windows
 cbox_v = {
     "2.3.3": ["centos7-cernbox","2.3.3.1807","2.3.3.1110"],
@@ -23,24 +25,66 @@ cbox_v = {
     "1.8.3": ["centos7-cernbox","1.8.3.510","1.8.3.499"],
 }
 
+
+required_packages = ['urllib2','wget','pyoclient']
+
+if platform.system() == "Windows":
+    required_packages.append('pycurl')
+    required_packages.append('pip') # windows don't have a pip in path as default
+else:
+    required_packages.append('python-crontab')
+    required_packages.append('pyoclient')
+
+def install_and_import(pkg):
+    """ Setup some needed python packages for the execution of this script
+    """
+    import site
+    import importlib
+
+    try:
+        importlib.import_module(pkg)
+    except ImportError:
+        print(pkg + " not present. Installing " + pkg + " ...")
+        try:
+            import pip
+            pip.main(['install', pkg])
+        except:
+           print("pip not present. Installing pip ...")
+           os.system(sys.executable + " -m easy_install pip")
+           reload(site)
+
+        import pip # retry
+        if pkg == "pyoclient":
+            pip.main(['install', "git+https://github.com/owncloud/pyocclient.git@master#egg=pyocclient"])
+        else:
+            pip.main(['install', pkg])
+            reload(site) # Most of the stuff is set up in Python's site.py which is automatically imported when starting the interpreter
+        if pkg != "python-crontab" and  pkg != "pyoclient": # import python-crontab later
+            importlib.import_module(pkg)
+            globals()[pkg] = importlib.import_module(pkg) # make sure that the pkg is in global namespace
+
+for pkg in required_packages:
+    install_and_import(pkg)
+
 ####### monitoring utilities to publish deployment state in kibana ############################################################
 
 def get_monitoring_host():
     """
     Get kibana parameters defined in smashbox.conf
     """
-    smashbox_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf")
+    smashbox_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox-cernbox.conf")
+    try:
+        conf_file = open(smashbox_conf, 'r')
 
-    conf_file = open(smashbox_conf, 'r')
+        for line in conf_file:
+            if line[0:len("kibana_monitoring_host = ")] == "kibana_monitoring_host = ":
+                monitoring_host = line[len("kibana_monitoring_host = ")::].rsplit('\n')[0].replace('"', '')
+            if line[0:len("kibana_monitoring_port = ")] == "kibana_monitoring_port = ":
+                monitoring_port = line[len("kibana_monitoring_port = ")::].rsplit('\n')[0].replace('"', '')
 
-    for line in conf_file:
-        if line[0:len("kibana_monitoring_host = ")] == "kibana_monitoring_host = ":
-            monitoring_host = line[len("kibana_monitoring_host = ")::].rsplit('\n')[0].replace('"', '')
-        if line[0:len("kibana_monitoring_port = ")] == "kibana_monitoring_port = ":
-            monitoring_port = line[len("kibana_monitoring_port = ")::].rsplit('\n')[0].replace('"', '')
-
-    return monitoring_host,monitoring_port
-
+        return monitoring_host,monitoring_port
+    except:
+        return "","" # Only info if the host machine is tested against production also (TODO:consider also allow add small tests)
 
 def publish_deployment_state(deployment_config):
     """
@@ -75,14 +119,12 @@ def send_and_check(document, monitoring_host,monitoring_port, should_fail=False)
 def this_repo_name():
     current_path = os.path.dirname(os.path.abspath(__file__))
     git_config = open(os.path.join(current_path,".git","config"), 'rb')
-    repo_name=""
 
     for line in git_config:
         if line[0:len("	url = ")] == "	url = " :
             return line[len("	url = ")::].split('\n')[0]
 
-this_repo = this_repo_name()
-print this_repo
+this_repo =  this_repo_name()
 
 def get_repo_name(repo_url):
     """ This function is a workaround for Windows
@@ -103,7 +145,7 @@ def download_repository(repo_url):
     repo_name = get_repo_name(repo_url)
     print repo_name
 
-    if platform.system() == "Windows":
+    try:
         this_filepath = os.path.dirname(os.path.abspath(__file__))
         import wget
         wget.download("http://github.com/" + repo_name + "/archive/master.zip")
@@ -115,15 +157,10 @@ def download_repository(repo_url):
         zip_ref.close()
         os.rename(os.path.join(this_filepath,repo_name.split("/")[1] +"-master"), os.path.join(this_filepath,repo_name.split("/")[1]))
         os.remove(os.path.join(this_filepath,repo_name.split("/")[1] +"-master.zip"))
-
-    else: # use git
-        if is_update:
-            os.system("git pull " + os.path.join(os.path.dirname(os.path.abspath(__file__)),repo_name.split("/")[1]))
-        else:
-            os.system("git clone " + "http://github.com/" + repo_name + ".git")
+    except:
+        "git service is not accessible"
 
 def remove_old_folders():
-
     tmp_folder1 = os.path.join(os.path.dirname(os.path.abspath(__file__)), get_repo_name(this_repo).split("/")[1])
     if os.path.exists(tmp_folder1) :  # if windows removed the "smashbox-deploymnet" folder (this folder is incorrectly leaved after updates)
         shutil.rmtree(tmp_folder1)
@@ -134,17 +171,31 @@ def remove_old_folders():
 
 ####### utilities for this installation script #################################################################################
 
-def smash_run():
+def smash_check():
+
+    current_path = os.path.dirname(os.path.abspath(__file__))
+
+    test_endpoints = [f for f in listdir(os.path.join(current_path,"smashbox","etc")) if f[0:len('smashbox-')] == 'smashbox-'] # test endpoint
+
+    for endpoint in test_endpoints:
+        print '\033[94m' + "Testing smashbox installation in " + str(socket.gethostname()) + " with " + endpoint + '\033[0m'
+        cmd = sys.executable + " " + current_path + "/smashbox/bin/smash " + current_path + "/smashbox/lib/test_nplusone.py  -c " + current_path +"/smashbox/etc/" + endpoint
+        try:
+             subprocess.check_output(cmd)
+        except Exception as e:
+            print "Smashbox installation failed: Non-zero exit code after running smashbox with " + endpoint
+            print e
+            exit(0)
+        print "Smashbox installation success! with " +  endpoint
+
+def smash_run(endpoint):
     print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m'
     current_path = os.path.dirname(os.path.abspath(__file__))
-    cmd = sys.executable + " " + current_path + "/smashbox/bin/smash " + current_path + "/smashbox/lib/test_nplusone.py"
     try:
-        subprocess.check_output(cmd)
-    except subprocess.CalledProcessError as e:
-        print "Smashbox installation failed: Non-zero exit code after running smashbox"
-
-    os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going " + current_path + "/smashbox/lib/") # run smashbox normally
-
+        os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going " + current_path + "/smashbox/lib/ -c " + current_path +"/smashbox/etc/smashbox-" + endpoint + ".conf") # run smashbox normally
+    except:
+        print "Smashbox failed: Non-zero exit code after running smashbox with " + endpoint
+       # continue with next endpoint
 
 def install_oc_client(version):
     import wget
@@ -172,22 +223,22 @@ def install_oc_client(version):
         os.remove("cernbox-" + cbox_v[version][2] +"-setup.exe")
 
 def generate_config_smashbox(oc_account_name, oc_account_password, endpoint, ssl_enabled, kibana_activity):
-    print '\033[94m' + "Installing/updating smashbox" + '\033[0m'
+    print '\033[94m' + "Installing/updating smashbox for: " + endpoint + '\033[0m'
+    # TODO: Solve this bug in smashbox. Smashbox always requires a file with the name "smashbox.conf" even if it is not used ( -c smashbox option)
+    shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "auto-smashbox.conf"), os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf" ))
+
     new_smash_conf = os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox-" + endpoint + ".conf" )
     shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)),"auto-smashbox.conf"),new_smash_conf)
     f = open(new_smash_conf, 'a')
 
-    f.write('oc_account_name =' + '"{}"'.format(oc_account_name) + '\n')
-    f.write('oc_account_password =' + '"{}"'.format(oc_account_password) + '\n')
-    f.write('oc_server =' + '"{}"'.format(endpoint + "/cernbox/desktop") + '\n')
+    f.write('oc_account_name = ' + '"{}"'.format(oc_account_name) + '\n')
+    f.write('oc_account_password = ' + '"{}"'.format(oc_account_password) + '\n')
+    f.write('oc_server = ' + '"{}"'.format(endpoint + ".cern.ch" + "/cernbox/desktop") + '\n')
 
-    if ssl_enabled:
-        f.write('oc_ssl_enabled =' + "True" + '\n')
-    else:
-        f.write('oc_ssl_enabled =' + "False" + '\n')
+    f.write('oc_ssl_enabled = ' + ssl_enabled + '\n')
 
     oc_sync_path = get_oc_sync_cmd_path()
-    f.write("oc_sync_cmd =" + str(oc_sync_path) + '\n')
+    f.write('oc_sync_cmd = ' + '"{}"'.format(oc_sync_path) + '\n')
 
     f.write('kibana_activity =' + '"{}"'.format(kibana_activity) + '\n')
 
@@ -205,58 +256,19 @@ def get_oc_sync_cmd_path():
 
     return path
 
-def backup_results():
+def backup_results(): # TODO: add the option to backup the test results
     return True
-
-
-def setup_python():
-    """ Setup some needed python packages for the execution of this script
-    """
-    try:
-        import wget
-    except ImportError:
-        print("wget not present. Installing wget...")
-        os.system(sys.executable + " -m easy_install wget")
-        import wget
-
-    try:
-        import urllib2
-    except ImportError:
-        print("urllib2 not present. Installing urllib2...")
-        os.system(sys.executable + " -m easy_install urllib2")
-        import wget
-
-    try:
-        import pip
-    except ImportError:
-        print("pip not present. Installing pip...")
-        os.system(sys.executable + " -m easy_install pip")
-        import pip
-
-    if platform.system() == "Windows":
-        try:
-            import pycurl
-        except ImportError:
-            print("Pycurl not present. Installing pycurl...")
-            os.system(sys.executable + " -m easy_install pycurl")
-            import pycurl
 
 def create_cron_job():
     """ This is the method to create the cron jobs
     """
-
     if platform.system() != "Windows":
-        try:
-            from crontab import CronTab
-        except ImportError:
-            print("CronTab not present. Installing crontab...")
-            os.system(sys.executable + " -m easy_install python-crontab")
-            from crontab import CronTab
 
         runtime = current_config['runtime'].split(":")
         job_time = runtime[1] + " " + runtime[0] + " * * *"
         print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
         #user = os.popen("echo $USER").read().split("\n")[0]
+        import CronTab
         my_cron = CronTab("root") # This installation script needs to be run as root
 
         job_is_updated = False
@@ -288,6 +300,7 @@ def create_cron_job():
 def ocsync_version(oc_sync_cmd):
     """ Return the version reported by oc_sync_cmd.
      :return a tuple (major,minor,bugfix). For example: (1,7,2) or (2,1,1)
+     Note: Same method as cernbox/smashbox project
     """
     # strip possible options from config.oc_sync_cmd
     cmd = [oc_sync_cmd[0]] + ["--version"]
@@ -308,7 +321,7 @@ def check_oc_client_installation(config):
     version_tuple = ocsync_version(get_oc_sync_cmd_path())
     installed_version = str(version_tuple)[1:-1].replace(", ", ".")
 
-    if (config["oc_client"] != installed_version): # TODO: check if it is needed to unistall first previous version
+    if (config["oc_client"] != installed_version): # TODO: check if it is needed to unistall previous version
         install_oc_client(config["oc_client"])  # update version
 
 def setup_config(deployment_config, accounts_info,is_update):
@@ -329,57 +342,76 @@ def setup_config(deployment_config, accounts_info,is_update):
         print "this host has been removed from the configuration files; please manually delete this vm"
         exit(0)
     else:
-        if not is_update:
-            setup_python()
-            import pip
-            pip.main(['install', 'pyocclient'])
-
         download_repository("https://github.com/cernbox/smashbox.git")
 
         check_oc_client_installation(this_host_config)
 
-        # configurate smashbox
-        for endpoint in this_host_config["oc_server"]:
-            generate_config_smashbox(accounts_info["oc_account_name"], accounts_info["oc_account_password"],endpoint, this_host_config["ssl_enabled"],this_host_config["kibana_activity"])
+        endpoints_list =  this_host_config["oc_endpoints"].split(",")
+        ssl_enabled_list =  this_host_config["ssl_enabled"].split(",")
 
+        # configurate smashbox
+        for endpoint, ssl_enabled in zip(endpoints_list,ssl_enabled_list):
+            if endpoint in accounts_info.keys():
+                generate_config_smashbox(accounts_info[endpoint]["oc_account_name"],
+                                         accounts_info[endpoint]["oc_account_password"],endpoint,
+                                         ssl_enabled,this_host_config["kibana_activity"])
+            else:
+                generate_config_smashbox(accounts_info["default"]["oc_account_name"],
+                                         accounts_info["default"]["oc_account_password"], endpoint,
+                                         ssl_enabled, this_host_config["kibana_activity"])
     return this_host_config
 
-def load_config_files(auth_file="auth.conf", is_update=False):
-    """ This method loads the config file "auth.conf" passed to
-    the script as argument and the "deployment_architecture.csv"
-    :return deploy_configuration with the architecture as a dict
-    and account_info as a dict with oc_account_name and oc_account_password
+
+def get_occ_credentials(auth_files):
+    """ This method loads the config file "auth_files"
+    passed to the script as argument
+    :return  account_info as a list of dict with oc_account_name and oc_account_password
     """
-    deploy_configuration = dict()
+    authfile = None
     accounts_info = dict()
-    deploy_file = None
+    auth_file_list = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f in auth_files ]
+    if len(auth_file_list)<0:
+        print "Missing authentication configuration files: 'auth-default.conf'"
+        exit(0)
 
-    if is_update: # update repo to get the new "deployment_architecture.csv"
-        if platform.system() == "Windows":
-            download_repository(this_repo)
-            deploy_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "smashbox-deployment", "deployment_architecture.csv")
+    for file in auth_file_list:
+        try:
+            authfile = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), file), 'rb')
+        except IOError:
+            print "Could not read file:", auth_files
+
+        if "default" in file:
+            endpoint="default"
         else:
-            os.system("git pull " + os.getcwd())
+            endpoint = file.split("auth-")[1].rsplit(".")[0]
 
-    if not deploy_file: # get the deployment file from the current project
-        deploy_file = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f=='deployment_architecture.csv' ][0]
-        if deploy_file == "":
-            print "Missing deployment configuration file: 'deployment_architecture.csv'"
-            exit(0)
+        accounts_info[endpoint] = {"oc_account_name": "", "oc_account_password": ""}
+        for line in authfile:
+            if line[0:len("oc_account_name = ")] == "oc_account_name = ":
+                if platform.system() == "Windows":
+                    accounts_info[endpoint]["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\r')[0]
+                else:
+                    accounts_info[endpoint]["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\n')[0]
+            if line[0:len("oc_account_password = ")] == "oc_account_password = ":
+                accounts_info[endpoint]["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
 
-    try:
-        authfile = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), auth_file), 'rb')
-    except IOError:
-        print "Could not read file:", auth_file
+    return accounts_info
 
-    for line in authfile:
-        if line[0:len("oc_account_name = ")] == "oc_account_name = ":
-            if platform.system() == "Windows":
-                accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\r')[0]
-            else:
-                accounts_info["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\n')[0]
-        if line[0:len("oc_account_password = ")] == "oc_account_password = ":
-            accounts_info["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
+def get_deploy_configuration():
+    """ This method loads the config file "deployment_architecture.csv"
+    passed to the script as argument
+    :return deploy_configuration with the architecture as a dict
+    """
+    deploy_configuration= dict()
+    if os.path.exists("deployment_architecture.csv"): # update repo to get the new "deployment_architecture.csv"
+        os.remove("deployment_architecture.csv")
+    import wget
+    wget.download(deployment_config_link)# get the deployment file
+
+    deploy_file = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f=='deployment_architecture.csv' ][0]
+    if deploy_file == "":
+        print "Missing deployment configuration file: 'deployment_architecture.csv'"
+        exit(0)
 
     if deploy_file[-3:] == "csv":
         try:
@@ -391,13 +423,27 @@ def load_config_files(auth_file="auth.conf", is_update=False):
         print "Wrong file format: ", deploy_file
         exit(0)
 
+    return deploy_configuration
+
+def load_config_files(auth_files=["auth-default.conf"], is_update=False):
+    """ This method loads the config file "auth-default.conf" passed to
+    the script as argument and the "deployment_architecture.csv"
+    :return deploy_configuration with the architecture as a dict
+    and account_info as a dict with oc_account_name and oc_account_password
+    """
+
+    deploy_configuration = get_deploy_configuration()
+
+    accounts_info = get_occ_credentials(auth_files)
+
     return deploy_configuration, accounts_info
 
 def parse_cmdline_args():
     parser = argparse.ArgumentParser(description='''Smashbox - This is a framework for end-to-end testing the core storage functionality of owncloud-based service installation ''')
     parser.add_argument("--auth",
+                        nargs='+',
                         help='accounts info config file',
-                        default="auth.conf")
+                        default=["auth-default.conf"])
     return parser
 
 if __name__== '__main__':
@@ -413,20 +459,24 @@ if __name__== '__main__':
     if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "smashbox")): # check if the current script execution is update? or now setup? (no smashbox folder in new setups)
         is_update = True
 
-    if platform.system() == "Windows":
-        remove_old_folders()
-
+    remove_old_folders()
 
     # 1) Load the configutation files ( get updated deployment_architecture if is_update)
     deployment_config, accounts_info = load_config_files(args.auth, is_update)
     # 2) Setup smashbox and oc_client with the new/updated "deployment_architecture" and "auth" configuration
     current_config = setup_config(deployment_config, accounts_info, is_update)
-    # 3) Run smashbox
-    smash_run()
+    # 3) Check smashbox installation
+    smash_check()
     # 4) Publish new deployment architecture info into kibana dashboard
     publish_deployment_state(current_config)
     # 5) install cron job
     create_cron_job()
+    # 6) Run smashbox
+    endpoints_list = current_config["oc_endpoints"].split(",")
+    # run all tests per endpoint
+    for endpoint in endpoints_list:
+        smash_run(endpoint)
+
 
 
 
