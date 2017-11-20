@@ -44,7 +44,7 @@ smash-"platform"-"oc_client_version". For example: `smash-win10-233`
 
 ###### (2) Indicate the configuration of each of these machines in `./deployment_architecture.csv` 
 
-The `./deployment_architecture.csv` file should be stored in the root path of this repository and it contains the following parameters:
+The `./deployment_architecture.csv` file is stored in an external repository, the link has been temporary hardcode in the variable `deployment_config_link`. It is stored in eos in `project/cernbox/smashbox` and it contains the following parameters:
 
 
 |    hostname    |  platform | oc_client |      oc_enpoints                |     runtime     |  ssl_enabled        |  kibana_activity   |
