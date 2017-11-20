@@ -115,3 +115,6 @@ The dashboard has been designed to monitor the failed tests running smashbox wit
 ![Alt text](/documentation/img/smashbox-dashboard.png?raw=true "smashbox-dashboard")
 
 ** Note: This section is based on the current deployed ELK architecture at CERN. In order to easily deploy an ELK architecture there is a document describing the procedure `kibana/elk-docker.pdf`.
+=======
+# smashbox-docker
+>>>>>>> 2a918ea341a9c8b3c0c1047cef9bfc164aa6f042
