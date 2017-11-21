@@ -42,7 +42,7 @@ If you want to set up a machine for continuos testing and monitoring with smashb
 
 smash-"platform"-"oc_client_version". For example: `smash-win10-233`
 
-###### (2) Indicate the configuration of each of these machines in `./deployment_architecture.csv` 
+###### (2) Indicate the configuration of each of these machines in `./deployment_architecture.csv`
 
 The `./deployment_architecture.csv` file is stored in an external repository, the link has been temporary hardcode in the variable `deployment_config_link`. It is stored in eos in `project/cernbox/smashbox` and it contains the following parameters:
 
@@ -115,6 +115,3 @@ The dashboard has been designed to monitor the failed tests running smashbox wit
 ![Alt text](/documentation/img/smashbox-dashboard.png?raw=true "smashbox-dashboard")
 
 ** Note: This section is based on the current deployed ELK architecture at CERN. In order to easily deploy an ELK architecture there is a document describing the procedure `kibana/elk-docker.pdf`.
-=======
-# smashbox-docker
->>>>>>> 2a918ea341a9c8b3c0c1047cef9bfc164aa6f042

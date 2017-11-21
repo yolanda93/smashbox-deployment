@@ -14,15 +14,15 @@ deployment_config_link = "https://cernbox.cern.ch/index.php/s/65BChf3cbz7OoDe/do
 
 # linux, macosx windows
 cbox_v = {
-    "2.3.3": ["centos7-cernbox","2.3.3.1807","2.3.3.1110"],
-    "2.2.4": ["centos7-cernbox","2.2.4.1495","2.2.4.830"],
-    "2.1.1": ["centos7-cernbox","2.1.1.1144","2.2.2.570"],
-    "2.0.2": ["centos7-cernbox","2.0.2.782","2.0.2.236"],
-    "1.6.4": ["centos7-cernbox","1.6.4.1197","1.6.4.4043"],
-    "2.0.1": ["centos7-cernbox","2.0.1.747","2.0.1.203"],
-    "1.7.1": ["centos7-cernbox","1.7.1.1810","1.7.1.4505"],
-    "1.7.2": ["centos7-cernbox","1.7.2.2331","1.7.2.5046"],
-    "1.8.3": ["centos7-cernbox","1.8.3.510","1.8.3.499"],
+    "2.3.3": ["centos7-cernbox.repo","2.3.3.1807","2.3.3.1110"],
+    "2.2.4": ["cernbox-2.2.4.968-linux/CentOS_7/ownbrander:cernbox","2.2.4.1495","2.2.4.830"],
+    "2.1.1": ["cernbox-2.1.1.697-linux/CentOS_7/ownbrander:cernbox","2.1.1.1144","2.2.2.570"],
+    "2.0.2": ["cernbox-2.0.2.445-linux/CentOS_7/ownbrander:cernbox","2.0.2.782","2.0.2.236"],
+    "1.6.4": ["cernbox-1.6.4/CentOS_7/ownbrander:cernbox","1.6.4.1197","1.6.4.4043"],
+    "2.0.1": ["cernboxtest-2.0.1/CentOS_7/ownbrander:cernbox","2.0.1.747","2.0.1.203"],
+    "1.7.1": ["cernbox-1.7.1/CentOS_7/ownbrander:cernbox","1.7.1.1810","1.7.1.4505"],
+    "1.7.2": ["cernbox-1.7.2/CentOS_7/ownbrander:cernbox","1.7.2.2331","1.7.2.5046"],
+    "1.8.3": ["cernbox-1.8.3/CentOS_7/ownbrander:cernbox","1.8.3.510","1.8.3.499"],
 }
 
 
@@ -59,6 +59,7 @@ def install_and_import(pkg):
         else:
             pip.main(['install', pkg])
             reload(site) # Most of the stuff is set up in Python's site.py which is automatically imported when starting the interpreter
+
         if pkg != "python-crontab" and  pkg != "pyoclient": # import python-crontab later
             importlib.import_module(pkg)
             globals()[pkg] = importlib.import_module(pkg) # make sure that the pkg is in global namespace
@@ -181,7 +182,7 @@ def smash_check():
         print '\033[94m' + "Testing smashbox installation in " + str(socket.gethostname()) + " with " + endpoint + '\033[0m'
         cmd = sys.executable + " " + current_path + "/smashbox/bin/smash " + current_path + "/smashbox/lib/test_nplusone.py  -c " + current_path +"/smashbox/etc/" + endpoint
         try:
-             subprocess.check_output(cmd)
+             os.system(cmd)
         except Exception as e:
             print "Smashbox installation failed: Non-zero exit code after running smashbox with " + endpoint
             print e
@@ -189,7 +190,7 @@ def smash_check():
         print "Smashbox installation success! with " +  endpoint
 
 def smash_run(endpoint):
-    print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m'
+    print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m' + '\n'
     current_path = os.path.dirname(os.path.abspath(__file__))
     try:
         os.system(sys.executable + " " + current_path + "/smashbox/bin/smash --keep-going " + current_path + "/smashbox/lib/ -c " + current_path +"/smashbox/etc/smashbox-" + endpoint + ".conf") # run smashbox normally
@@ -201,29 +202,29 @@ def install_oc_client(version):
     import wget
 
     if platform.system() == "linux" or platform.system() == "linux2":  # linux
-        print '\033[94m' + "Installing cernbox client " + version + " for linux" + '\033[0m'
-        wget.download("http://cernbox.cern.ch/cernbox/doc/Linux/" + cbox_v[version][0] +".repo")
-        os.rename("./" + cbox_v[version][0] +".repo", "./tmp/" + cbox_v[version][0] +".repo")
-        os.system("cp ./tmp/" + cbox_v[version][0] +".repo /etc/yum.repos.d/cernbox.repo")
+        print '\033[94m' + "Installing cernbox client " + version + " for linux" + '\033[0m' + '\n'
+        wget.download("http://cernbox.cern.ch/cernbox/doc/Linux/" + cbox_v[version][0])
+        shutil.copyfile(cbox_v[version][0] + ".repo", "/etc/yum-puppet.repos.d/cernbox.repo")
         os.system("yum update")
         os.system("yum install cernbox-client")
+        os.remove(cbox_v[version][0] + ".repo")
 
     elif platform.system() == "darwin":  # MacOSX
-        print '\033[94m' + "Installing cernbox client " + version + " for MAC OSX" + '\033[0m'
+        print '\033[94m' + "Installing cernbox client " + version + " for MAC OSX" + '\033[0m' + '\n'
         wget.download("https://cernbox.cern.ch/cernbox/doc/MacOSX/cernbox-" + cbox_v[version][1] +"-signed.pkg")
         os.system("cp ./cernbox-" + cbox_v[version][1] +"-signed.pkg ./tmp/cernbox-" + cbox_v[version][1] +"-signed.pkg")
         os.system("installer -pkg ./tmp/cernbox-" + cbox_v[version][1] +"-signed.pkg -target /")
 
 
     elif platform.system() == "Windows":  # Windows
-        print '\033[94m' + "Installing cernbox client " + version + " for Windows" + '\033[0m'
+        print '\033[94m' + "Installing cernbox client " + version + " for Windows" + '\033[0m' + '\n'
         wget.download("https://cernbox.cern.ch/cernbox/doc/Windows/cernbox-" + cbox_v[version][2] +"-setup.exe")
         #os.rename(os.path.join(os.getcwd(),"cernbox-" + cbox_v[version][2] +"-setup.exe"), os.path.join(os.getcwd(),"/tmp/cernbox-" + cbox_v[version][2] +"-setup.exe"))
         os.system("cernbox-" + cbox_v[version][2] +"-setup.exe /S")
         os.remove("cernbox-" + cbox_v[version][2] +"-setup.exe")
 
 def generate_config_smashbox(oc_account_name, oc_account_password, endpoint, ssl_enabled, kibana_activity):
-    print '\033[94m' + "Installing/updating smashbox for: " + endpoint + '\033[0m'
+    print '\033[94m' + "Installing/updating smashbox for: " + endpoint + '\033[0m' + '\n'
     # TODO: Solve this bug in smashbox. Smashbox always requires a file with the name "smashbox.conf" even if it is not used ( -c smashbox option)
     shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "auto-smashbox.conf"), os.path.join(os.path.dirname(os.path.abspath(__file__)),"smashbox","etc","smashbox.conf" ))
 
@@ -250,7 +251,10 @@ def get_oc_sync_cmd_path():
         path = ['C:\Program Files (x86)\cernbox\cernboxcmd.exe', '--trust']
     elif platform.system() == "Linux":
         location = os.popen("whereis cernboxcmd").read()
-        path = "/" + location.split("cernboxcmd")[1].split(": /")[1] + "cernboxcmd --trust"
+        if len(location)>0:
+            path = "/" + location.split("cernboxcmd")[1].split(": /")[1] + "cernboxcmd --trust"
+        else: # no cernbox installed
+            path = ""
     elif platform.system() == "Darwin":
         path = "/Applications/cernbox.app/Contents/MacOS/cernboxcmd --trust"
 
@@ -266,9 +270,11 @@ def create_cron_job():
 
         runtime = current_config['runtime'].split(":")
         job_time = runtime[1] + " " + runtime[0] + " * * *"
-        print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'
+        print '\033[94m' + "Installing cron job at: " + job_time + '\033[0m'  + '\n'
         #user = os.popen("echo $USER").read().split("\n")[0]
-        import CronTab
+
+        import sys
+        from crontab import CronTab
         my_cron = CronTab("root") # This installation script needs to be run as root
 
         job_is_updated = False
@@ -285,7 +291,7 @@ def create_cron_job():
     else:
         import sys
 
-        print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'
+        print '\033[94m' + "Installing cron job at: " + str(current_config['runtime']) + '\033[0m'  + '\n'
         this_exec_path =  os.path.join(os.path.dirname(os.path.abspath(__file__)),"setup.py" + "'")
 
         cmd = "schtasks /Create /SC DAILY /TN Smashbox /ST " + current_config['runtime'] + " /TR " + this_exec_path + " /F" # /F is to force the overwrite of the existing scheduled task
@@ -339,7 +345,7 @@ def setup_config(deployment_config, accounts_info,is_update):
 
     if not this_host_config:
         this_host_config["state"] = "Deleted"
-        print "this host has been removed from the configuration files; please manually delete this vm"
+        print "this host has been removed from the configuration files; please manually delete this vm"  + '\n'
         exit(0)
     else:
         download_repository("https://github.com/cernbox/smashbox.git")
@@ -356,9 +362,14 @@ def setup_config(deployment_config, accounts_info,is_update):
                                          accounts_info[endpoint]["oc_account_password"],endpoint,
                                          ssl_enabled,this_host_config["kibana_activity"])
             else:
-                generate_config_smashbox(accounts_info["default"]["oc_account_name"],
-                                         accounts_info["default"]["oc_account_password"], endpoint,
-                                         ssl_enabled, this_host_config["kibana_activity"])
+                if "default" not in accounts_info.keys():
+                    print "ERROR auth-default.conf : At least one valid auth-default.conf file with default owncloud client username and password is required"
+                    exit(0)
+                else:
+                    generate_config_smashbox(accounts_info["default"]["oc_account_name"],
+                                             accounts_info["default"]["oc_account_password"], endpoint,
+                                             ssl_enabled, this_host_config["kibana_activity"])
+
     return this_host_config
 
 
@@ -380,10 +391,7 @@ def get_occ_credentials(auth_files):
         except IOError:
             print "Could not read file:", auth_files
 
-        if "default" in file:
-            endpoint="default"
-        else:
-            endpoint = file.split("auth-")[1].rsplit(".")[0]
+        endpoint = file.split("auth-")[1].rsplit(".")[0]
 
         accounts_info[endpoint] = {"oc_account_name": "", "oc_account_password": ""}
         for line in authfile:
