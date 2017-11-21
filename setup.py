@@ -415,6 +415,7 @@ def get_deploy_configuration():
         os.remove("deployment_architecture.csv")
     import wget
     wget.download(deployment_config_link)# get the deployment file
+    shutil.copyfile("deployment-architecture.csv", os.path.dirname(os.path.abspath(__file__))) # this file needs to be in the same folder as this file
 
     deploy_file = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f=='deployment_architecture.csv' ][0]
     if deploy_file == "":
