@@ -14,7 +14,7 @@ deployment_config_link = "https://cernbox.cern.ch/index.php/s/65BChf3cbz7OoDe/do
 
 # linux, macosx windows
 cbox_v = {
-    "2.3.3": ["centos7-cernbox.repo","2.3.3.1807","2.3.3.1110"],
+    "2.3.3": ["centos7-cernbox","2.3.3.1807","2.3.3.1110"],
     "2.2.4": ["cernbox-2.2.4.968-linux/CentOS_7/ownbrander:cernbox","2.2.4.1495","2.2.4.830"],
     "2.1.1": ["cernbox-2.1.1.697-linux/CentOS_7/ownbrander:cernbox","2.1.1.1144","2.2.2.570"],
     "2.0.2": ["cernbox-2.0.2.445-linux/CentOS_7/ownbrander:cernbox","2.0.2.782","2.0.2.236"],
@@ -179,15 +179,15 @@ def smash_check():
     test_endpoints = [f for f in listdir(os.path.join(current_path,"smashbox","etc")) if f[0:len('smashbox-')] == 'smashbox-'] # test endpoint
 
     for endpoint in test_endpoints:
-        print '\033[94m' + "Testing smashbox installation in " + str(socket.gethostname()) + " with " + endpoint + '\033[0m'
+        print '\033[94m' + "Testing smashbox installation in " + str(socket.gethostname()) + " with " + endpoint + '\033[0m' + '\n'
         cmd = sys.executable + " " + current_path + "/smashbox/bin/smash " + current_path + "/smashbox/lib/test_nplusone.py  -c " + current_path +"/smashbox/etc/" + endpoint
         try:
              os.system(cmd)
         except Exception as e:
-            print "Smashbox installation failed: Non-zero exit code after running smashbox with " + endpoint
+            print '\033[94m' +  "Smashbox installation failed: Non-zero exit code after running smashbox with " + endpoint  + '\033[0m' + '\n'
             print e
             exit(0)
-        print "Smashbox installation success! with " +  endpoint
+        print '\033[94m' + "Smashbox installation success! with " +  endpoint  + '\033[0m' + '\n'
 
 def smash_run(endpoint):
     print '\033[94m' + "Running smashbox in " +  str(socket.gethostname()) + '\033[0m' + '\n'
@@ -201,12 +201,12 @@ def smash_run(endpoint):
 def install_oc_client(version):
     import wget
 
-    if platform.system() == "linux" or platform.system() == "linux2":  # linux
-        print '\033[94m' + "Installing cernbox client " + version + " for linux" + '\033[0m' + '\n'
-        wget.download("http://cernbox.cern.ch/cernbox/doc/Linux/" + cbox_v[version][0])
+    if platform.system() == "Linux" or platform.system() == "linux2":  # linux
+        print '\n' + '\033[94m' + "Installing cernbox client " + version + " for linux" + '\033[0m' + '\n'
+        wget.download("http://cernbox.cern.ch/cernbox/doc/Linux/" + cbox_v[version][0]+".repo")
         shutil.copyfile(cbox_v[version][0] + ".repo", "/etc/yum-puppet.repos.d/cernbox.repo")
         os.system("yum update")
-        os.system("yum install cernbox-client")
+        os.system("yum install cernbox-client -y")
         os.remove(cbox_v[version][0] + ".repo")
 
     elif platform.system() == "darwin":  # MacOSX
@@ -232,8 +232,8 @@ def generate_config_smashbox(oc_account_name, oc_account_password, endpoint, ssl
     shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)),"auto-smashbox.conf"),new_smash_conf)
     f = open(new_smash_conf, 'a')
 
-    f.write('oc_account_name = ' + '"{}"'.format(oc_account_name) + '\n')
-    f.write('oc_account_password = ' + '"{}"'.format(oc_account_password) + '\n')
+    f.write('oc_account_name = ' + oc_account_name + '\n')
+    f.write('oc_account_password = ' + oc_account_password + '\n')
     f.write('oc_server = ' + '"{}"'.format(endpoint + ".cern.ch" + "/cernbox/desktop") + '\n')
 
     f.write('oc_ssl_enabled = ' + ssl_enabled + '\n')
@@ -251,7 +251,7 @@ def get_oc_sync_cmd_path():
         path = ['C:\Program Files (x86)\cernbox\cernboxcmd.exe', '--trust']
     elif platform.system() == "Linux":
         location = os.popen("whereis cernboxcmd").read()
-        if len(location)>0:
+        if location!="cernboxcmd:":
             path = "/" + location.split("cernboxcmd")[1].split(": /")[1] + "cernboxcmd --trust"
         else: # no cernbox installed
             path = ""
@@ -324,11 +324,15 @@ def check_oc_client_installation(config):
     """ It checks owncloud client installation and it installs a new
     version (if required)
     """
-    version_tuple = ocsync_version(get_oc_sync_cmd_path())
-    installed_version = str(version_tuple)[1:-1].replace(", ", ".")
+    occ_path = get_oc_sync_cmd_path()
+    if occ_path == "": # cernbox client not installed 
+	install_oc_client(config["oc_client"])
+    else:
+   	 version_tuple = ocsync_version(get_oc_sync_cmd_path())
+   	 installed_version = str(version_tuple)[1:-1].replace(", ", ".")
 
-    if (config["oc_client"] != installed_version): # TODO: check if it is needed to unistall previous version
-        install_oc_client(config["oc_client"])  # update version
+   	 if (config["oc_client"] != installed_version): # TODO: check if it is needed to unistall previous version
+       	     install_oc_client(config["oc_client"])  # update version
 
 def setup_config(deployment_config, accounts_info,is_update):
     """ This method installs oc_client and smashbox with the current host and
@@ -380,12 +384,8 @@ def get_occ_credentials(auth_files):
     """
     authfile = None
     accounts_info = dict()
-    auth_file_list = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f in auth_files ]
-    if len(auth_file_list)<0:
-        print "Missing authentication configuration files: 'auth-default.conf'"
-        exit(0)
 
-    for file in auth_file_list:
+    for file in auth_files:
         try:
             authfile = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), file), 'rb')
         except IOError:
@@ -396,12 +396,9 @@ def get_occ_credentials(auth_files):
         accounts_info[endpoint] = {"oc_account_name": "", "oc_account_password": ""}
         for line in authfile:
             if line[0:len("oc_account_name = ")] == "oc_account_name = ":
-                if platform.system() == "Windows":
-                    accounts_info[endpoint]["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\r')[0]
-                else:
-                    accounts_info[endpoint]["oc_account_name"] = line[len("oc_account_name = ")::].rsplit('\n')[0]
+                accounts_info[endpoint]["oc_account_name"] = line[len("oc_account_name = ")::].rsplit(',')[0]
             if line[0:len("oc_account_password = ")] == "oc_account_password = ":
-                accounts_info[endpoint]["oc_account_password"] = line[len("oc_account_password = ")::].rsplit('\n')[0]
+                accounts_info[endpoint]["oc_account_password"] = line[len("oc_account_password = ")::].rsplit(',')[0]
 
     return accounts_info
 
@@ -415,7 +412,7 @@ def get_deploy_configuration():
         os.remove("deployment_architecture.csv")
     import wget
     wget.download(deployment_config_link)# get the deployment file
-    shutil.copyfile("deployment-architecture.csv", os.path.dirname(os.path.abspath(__file__))) # this file needs to be in the same folder as this file
+    shutil.copyfile(os.path.join(os.getcwd(),"deployment_architecture.csv"),os.path.join(os.path.dirname(os.path.abspath(__file__)),"deployment_architecture.csv")) # this file needs to be in the same folder as this file
 
     deploy_file = [f for f in listdir(os.path.dirname(os.path.abspath(__file__))) if isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), f)) and f=='deployment_architecture.csv' ][0]
     if deploy_file == "":
